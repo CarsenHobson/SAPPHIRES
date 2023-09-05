@@ -84,8 +84,8 @@ try:
             is_baseline_collected = True
             with open(BASELINE_LOG_FILE, "a") as f:
                 f.write("\nBaseline value: {}\n".format(baseline))
-            print("Baseline collection completed.")
-            print("Baseline value:", baseline)
+            print("Baseline collection completed. Baseline is {baseline}")
+            
 
         # Apply smoothing to the PM2.5 data
         pm25_history.append(pm25)
@@ -97,12 +97,12 @@ try:
                 # Rising edge detected, turn on the relay
                 relay_state = True
                 GPIO.output(RELAY_PIN, GPIO.HIGH)
-                print("Rising edge detected! Relay turned on.")
+                print("Rising edge detected! Relay turned on. Current concentration is {pm25}")
             elif pm25 < baseline - LOWER_THRESHOLD:
                 # Falling edge detected, turn off the relay
                 relay_state = False
                 GPIO.output(RELAY_PIN, GPIO.LOW)
-                print("Falling edge detected! Relay turned off.")
+                print("Falling edge detected! Relay turned off. Current concentration is {pm25}")
 
             # Log the data to the respective log files
             with open(LOG_FILE, "a") as f:
@@ -123,7 +123,7 @@ try:
 
 except KeyboardInterrupt:
     sps.stop_measurement()
-    print("\nKeyboard interrupt detected. SPS30 turned off.")
+    print("\nKeyboard interrupt detected. SPS30 turned off. Data can be found in SPS30Read.txt and SPS30Baseline.txt")
 
     # Turn off the relay before exiting
     GPIO.output(RELAY_PIN, GPIO.LOW)
