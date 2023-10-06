@@ -20,10 +20,6 @@ BASELINE_THRESHOLD = 0.1  # 10% of baseline value
 # File path for JSON data log
 LOG_FILE_PATH = "sps30_data.json"
 
-def setup_sps30():
-    sps.start_measurement()
-    time.sleep(2)  # Add a delay of 2 seconds before reading measured values
-
 # Function to create the JSON file if it doesn't exist
 def create_json_file():
     if not os.path.exists(LOG_FILE_PATH):
@@ -37,19 +33,18 @@ def generate_random_key():
     characters = string.ascii_letters + string.digits
     return ''.join(secrets.choice(characters) for _ in range(8))
 
-# Function to log data (including relay state) to the JSON file"key": generate_random_key()
+# Function to log data (including relay state) to the JSON file
 def log_data(data, relay_state):
     try:
         with open(LOG_FILE_PATH, "a") as json_file:
             for entry in data:
                 entry_with_timestamp_and_key = {
-                    "key": generate_random_key(),  # Add UNIX timestamp
-                    "timestamp": int(time.time()),  # Generate a new random key for each entry
+                    "timestamp": int(time.time()),  # Add UNIX timestamp
+                    "key": generate_random_key(),  # Generate a new random key for each entry
                     "pm2_5": entry['pm2_5'],
                     "relay_state": relay_state
                 }
-                json.dump(entry_with_timestamp_and_key, json_file)"key": generate_random_key()
-                json_file.write("\n")
+                json_file.write(json.dumps(entry_with_timestamp_and_key) + "\n")
     except Exception as e:
         print(f"Error writing to JSON file: {str(e)}")
 
@@ -59,12 +54,13 @@ def check_rising_edge():
     start_time = time.time()
     baseline_finished = False
     relay_state = GPIO.LOW  # Initialize relay state to off
-    setup_sps30()
+
     while True:
         if time.time() - start_time < BASELINE_DURATION:
             # Collect baseline data
-            sps.read_measured_values()   
-            data = sps.dict_values['pm2p5']
+            sps.start_measurement()
+            time.sleep(2.5)  # Wait for the measurement to complete
+            data = sps.query()
             if data:
                 baseline_data.append(data)
         else:
@@ -102,8 +98,6 @@ def check_rising_edge():
 
             # Wait for a while before starting the next window
             time.sleep(10)
-
-
 
 # Start monitoring for rising edges
 if __name__ == "__main__":
