@@ -131,7 +131,14 @@ def check_rising_edge():
 
             time.sleep(10)
 
-if __name__ == "__main":
-    create_json_file()
-    check_rising_edge()
+# Start monitoring for rising edges
+if __name__ == "__main__":
+    try:
+    
+        create_json_file()  # Create the JSON file if it doesn't exist
+        check_rising_edge()
+    
+    except KeyboardInterrupt:
+        sps.stop_measurement()
+        print("\nKeyboard interrupt detected. SPS30 turned off.")
 
