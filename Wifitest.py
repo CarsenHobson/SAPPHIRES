@@ -7,13 +7,13 @@ LED_PIN = 17  # Change this to the actual GPIO pin you're using
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(LED_PIN, GPIO.OUT)
 
-def connect_to_wifi(ssid, password):
+def connect_to_wifi(ssid):
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
 
     if not wlan.isconnected():
         print(f"Connecting to WiFi {ssid}")
-        wlan.connect(ssid, password)
+        wlan.connect(ssid)
 
         while not wlan.isconnected():
             pass
@@ -21,11 +21,10 @@ def connect_to_wifi(ssid, password):
     print("Connected to WiFi")
 
 def main():
-    # Replace 'YourWiFiSSID' and 'YourWiFiPassword' with your actual Wi-Fi credentials
+    # Replace 'YourWiFiSSID' with your actual Wi-Fi SSID
     wifi_ssid = 'YourWiFiSSID'
-    wifi_password = 'YourWiFiPassword'
 
-    connect_to_wifi(wifi_ssid, wifi_password)
+    connect_to_wifi(wifi_ssid)
 
     # Blink the LED to indicate successful Wi-Fi connection
     for _ in range(3):
