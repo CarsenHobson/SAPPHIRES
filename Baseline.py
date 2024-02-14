@@ -29,10 +29,11 @@ def update_baseline_value(baseline_duration=60):  # Set the baseline duration in
 
     print(f"Baseline PM2.5: {baseline_pm25} µg/m³")
 
-    # Update the baseline value in the file
+    # Update the baseline value with timestamp in the file
     try:
+        timestamp = int(time.time())
         with open(BASELINE_FILE_PATH, "w") as baseline_file:
-            json.dump({"baseline_pm25": baseline_pm25}, baseline_file)
+            json.dump({"timestamp": timestamp, "baseline_pm25": baseline_pm25}, baseline_file)
         print("Baseline value updated in the file.")
     except Exception as e:
         print(f"Error updating baseline value: {str(e)}")
