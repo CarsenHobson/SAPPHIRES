@@ -17,7 +17,7 @@ sps = SPS30(1)
 bme280.setup()
 
 # Define constants
-BASELINE_FILE_PATH = "baseline.json"
+BASELINE_FILE_PATH = "baseline_value.json"
 LOG_FILE_PATH = "main.json"
 WINDOW_SIZE = 10  # Number of readings to consider
 BASELINE_THRESHOLD = 0.1
@@ -63,7 +63,6 @@ def setup_sps30():
     sps.start_measurement()
     time.sleep(2)
 
-# Function to check for rising edges
 def check_rising_edge():
     relay_state = GPIO.LOW
     baseline_pm25 = read_baseline_value()
@@ -77,17 +76,22 @@ def check_rising_edge():
             window_data.append(data)
         time.sleep(READING_INTERVAL)
 
-    if all(value > baseline_pm25 * (1 + BASELINE_THRESHOLD) for value in window_data):
-        print(f"All last {WINDOW_SIZE} readings were above the baseline. Turning on relay.")
-        GPIO.output(RELAY_PIN, GPIO.HIGH)
-        relay_state = GPIO.HIGH
+    if len(window_data) >= WINDOW_SIZE:
+        if all(value > baseline_pm25 * (1 + BASELINE_THRESHOLD) for value in window_data):
+            print(f"All last {WINDOW_SIZE} readings were above the baseline. Turning on relay.")
+            GPIO.output(RELAY_PIN, GPIO.HIGH)
+            relay_state = ON
+        else:
+            GPIO.output(RELAY_PIN, GPIO.LOW)
+            relay_state = OFF
+
+        bme280_data = bme280.readData()
+        log_data(window_data[-1], relay_state, bme280_data, baseline_pm25)
     else:
-        GPIO.output(RELAY_PIN, GPIO.LOW)
-        relay_state = GPIO.LOW
-
-    bme280_data = bme280.readData()
-    log_data(window_data[-1], relay_state, bme280_data, baseline_pm25)
-
+        print(f"Not enough data points ({len(window_data)} out of {WINDOW_SIZE}). Skipping rising edge calculation.")
+        bme280_data = bme280.readData()
+        relay_state = OFF
+        log_data(window_data[-1], relay_state, bme280_data, baseline_pm25)
 # Function to stop the SPS30 measurement
 def stop_sps30():
     sps.stop_measurement()
@@ -104,3 +108,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         sps.stop_measurement()
         print("\nKeyboard interrupt detected. SPS30 turned off.")
+
