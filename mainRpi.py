@@ -17,7 +17,7 @@ sps = SPS30(1)
 bme280.setup()
 
 # Define constants
-BASELINE_FILE_PATH = "baseline_value.json"
+BASELINE_FILE_PATH = "baseline.json"
 LOG_FILE_PATH = "main.json"
 WINDOW_SIZE = 10  # Number of readings to consider
 BASELINE_THRESHOLD = 0.1
@@ -38,6 +38,16 @@ def read_baseline_value():
             return baseline_data.get("baseline_pm25", 0)
     except (FileNotFoundError, json.JSONDecodeError):
         return 0
+
+# Function to read the last 10 measurements from the main file or use the last 10 baseline values
+def read_last_10_measurements():
+    try:
+        with open(LOG_FILE_PATH, "r") as log_file:
+            log_data = json.load(log_file)
+            last_10_measurements = [entry.get("pm2_5", read_baseline_value()) for entry in log_data[-10:]]
+            return last_10_measurements
+    except (FileNotFoundError, json.JSONDecodeError, IndexError):
+        return [read_baseline_value()] * 10
 
 # Function to log data (including relay state, PM2.5, BME280, and baseline) to the JSON file
 def log_data(pm2_5, relay_state, bme280_data, baseline_pm25):
@@ -68,17 +78,11 @@ def check_rising_edge():
     relay_state = GPIO.LOW
     baseline_pm25 = read_baseline_value()
 
-    window_data = []
+    # Check if there is no data in the main file
+    last_10_measurements = read_last_10_measurements()
 
-    for _ in range(WINDOW_SIZE):
-        sps.read_measured_values()
-        data = sps.dict_values['pm2p5']
-        if data:
-            window_data.append(data)
-        time.sleep(READING_INTERVAL)
-
-    if all(value > baseline_pm25 * (1 + BASELINE_THRESHOLD) for value in window_data):
-        print(f"All last {WINDOW_SIZE} readings were above the baseline. Turning on relay.")
+    if all(value > baseline_pm25 * (1 + BASELINE_THRESHOLD) for value in last_10_measurements):
+        print(f"All last 10 measurements were above the baseline. Turning on relay.")
         GPIO.output(RELAY_PIN, GPIO.HIGH)
         relay_state = GPIO.HIGH
     else:
@@ -86,7 +90,7 @@ def check_rising_edge():
         relay_state = GPIO.LOW
 
     bme280_data = bme280.readData()
-    log_data(window_data[-1], relay_state, bme280_data, baseline_pm25)
+    log_data(last_10_measurements[-1], relay_state, bme280_data, baseline_pm25)
 
 # Function to stop the SPS30 measurement
 def stop_sps30():
@@ -104,4 +108,3 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         sps.stop_measurement()
         print("\nKeyboard interrupt detected. SPS30 turned off.")
-
