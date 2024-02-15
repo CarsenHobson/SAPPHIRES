@@ -3,7 +3,7 @@ import RPi.GPIO as GPIO
 import json
 import os
 from sps30 import SPS30
-import bme280  # Ensure you have this library installed
+import Adafruit_BME280
 
 # Initialize GPIO for relay control
 RELAY_PIN = 19
@@ -14,7 +14,8 @@ GPIO.setup(RELAY_PIN, GPIO.OUT)
 sps = SPS30(1)
 
 # Initialize BME280 sensor
-bme280.setup()
+bme280 = Adafruit_BME280.BME280(address=0x77)
+
 
 # Define constants
 BASELINE_FILE_PATH = "baseline_value.json"
@@ -22,6 +23,10 @@ LOG_FILE_PATH = "main.json"
 WINDOW_SIZE = 10  # Number of readings to consider
 BASELINE_THRESHOLD = 0.1
 READING_INTERVAL = 3
+
+#Function to convert BME temp to Fahrenheit
+def celsius_to_fahrenheit(celsius):
+    return (celsius * 9/5) +32
 
 # Function to generate a random 8-character alphanumeric key for each entry
 def generate_random_key():
@@ -40,7 +45,7 @@ def read_baseline_value():
         return 0
 
 # Function to log data (including relay state, PM2.5, BME280, and baseline) to the JSON file
-def log_data(pm2_5, relay_state, bme280_data, baseline_pm25):
+def log_data(pm2_5, relay_state, temperature, humidity, baseline_pm25):
     try:
         with open(LOG_FILE_PATH, "a") as json_file:
             entry_with_timestamp_and_key = {
@@ -48,10 +53,9 @@ def log_data(pm2_5, relay_state, bme280_data, baseline_pm25):
                 "key": generate_random_key(),  # Generate a new random key for each entry
                 "pm2_5": pm2_5,
                 "relay_state": relay_state,
-                "bme280_data": {
-                    "temperature": bme280_data["temperature"],
-                    "humidity": bme280_data["humidity"]
-                },
+                "temperature": temperature,
+                "humidity": humidity,
+                
                 "baseline_pm25": baseline_pm25
             }
             json_file.write(json.dumps(entry_with_timestamp_and_key) + "\n")
@@ -66,7 +70,9 @@ def setup_sps30():
 def check_rising_edge():
     relay_state = GPIO.LOW
     baseline_pm25 = read_baseline_value()
-
+    temperature_celsius = bme280.read_temperature()
+    temperature = celsius_to_fahrenheit(temperature_celsius)
+    humidity = bme280.read_humidity()
     window_data = []
 
     for _ in range(WINDOW_SIZE):
@@ -84,14 +90,13 @@ def check_rising_edge():
         else:
             GPIO.output(RELAY_PIN, GPIO.LOW)
             relay_state = OFF
-
-        bme280_data = bme280.readData()
-        log_data(window_data[-1], relay_state, bme280_data, baseline_pm25)
+       
+        log_data(window_data[-1], relay_state, temperature, humidity, baseline_pm25)
+    
     else:
         print(f"Not enough data points ({len(window_data)} out of {WINDOW_SIZE}). Skipping rising edge calculation.")
-        bme280_data = bme280.readData()
         relay_state = OFF
-        log_data(window_data[-1], relay_state, bme280_data, baseline_pm25)
+        log_data(window_data[-1], relay_state, temperature, humidity, baseline_pm25)
 # Function to stop the SPS30 measurement
 def stop_sps30():
     sps.stop_measurement()
