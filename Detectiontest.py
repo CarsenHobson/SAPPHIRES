@@ -22,7 +22,7 @@ BASELINE_FILE_PATH = "baseline_value.json"
 LOG_FILE_PATH = "main.json"
 WINDOW_SIZE = 10  # Number of readings to consider
 BASELINE_THRESHOLD = 0.1
-READING_INTERVAL = 3
+
 
 #Function to convert BME temp to Fahrenheit
 def celsius_to_fahrenheit(celsius):
@@ -55,7 +55,6 @@ def log_data(pm2_5, relay_state, temperature, humidity, baseline_pm25):
                 "relay_state": relay_state,
                 "temperature": temperature,
                 "humidity": humidity,
-                
                 "baseline_pm25": baseline_pm25
             }
             json_file.write(json.dumps(entry_with_timestamp_and_key) + "\n")
@@ -74,16 +73,12 @@ def check_rising_edge():
     temperature = celsius_to_fahrenheit(temperature_celsius)
     humidity = bme280.read_humidity()
     window_data = []
-
-    for _ in range(WINDOW_SIZE):
-        sps.read_measured_values()
-        data = sps.dict_values['pm2p5']
-        if data:
-            window_data.append(data)
-        time.sleep(READING_INTERVAL)
-
-    if len(window_data) >= WINDOW_SIZE:
-        if all(value > baseline_pm25 * (1 + BASELINE_THRESHOLD) for value in window_data):
+    sps.read_measured_values()
+    data = sps.dict_values['pm2p5']
+    PM25 = LOG_FILE_PATH['pm_25']
+    Last_10_PM25 = PM25[-10:]
+    if len(LOG_FILE_PATH) >= WINDOW_SIZE:
+        if all(data_point > 1.1 * baseline_pm25 for data_point in Last_10_PM25)
             print(f"All last {WINDOW_SIZE} readings were above the baseline. Turning on relay.")
             GPIO.output(RELAY_PIN, GPIO.HIGH)
             relay_state = ON
@@ -91,12 +86,12 @@ def check_rising_edge():
             GPIO.output(RELAY_PIN, GPIO.LOW)
             relay_state = OFF
        
-        log_data(window_data[-1], relay_state, temperature, humidity, baseline_pm25)
+        log_data(data, relay_state, temperature, humidity, baseline_pm25)
     
     else:
         print(f"Not enough data points ({len(window_data)} out of {WINDOW_SIZE}). Skipping rising edge calculation.")
         relay_state = OFF
-        log_data(window_data[-1], relay_state, temperature, humidity, baseline_pm25)
+        log_data(data, relay_state, temperature, humidity, baseline_pm25)
 # Function to stop the SPS30 measurement
 def stop_sps30():
     sps.stop_measurement()
@@ -113,4 +108,3 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         sps.stop_measurement()
         print("\nKeyboard interrupt detected. SPS30 turned off.")
-
