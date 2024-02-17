@@ -72,39 +72,51 @@ def check_rising_edge():
     temperature_celsius = bme280.read_temperature()
     temperature = celsius_to_fahrenheit(temperature_celsius)
     humidity = bme280.read_humidity()
-    window_data = []
     sps.read_measured_values()
     data = sps.dict_values['pm2p5']
-    PM25 = LOG_FILE_PATH['pm_25']
-    Last_10_PM25 = PM25[-10:]
-    if len(LOG_FILE_PATH) >= WINDOW_SIZE:
-        if all(data_point > 1.1 * baseline_pm25 for data_point in Last_10_PM25)
-            print(f"All last {WINDOW_SIZE} readings were above the baseline. Turning on relay.")
-            GPIO.output(RELAY_PIN, GPIO.HIGH)
-            relay_state = ON
-        else:
-            GPIO.output(RELAY_PIN, GPIO.LOW)
-            relay_state = OFF
-       
-        log_data(data, relay_state, temperature, humidity, baseline_pm25)
-    
-    else:
-        print(f"Not enough data points ({len(window_data)} out of {WINDOW_SIZE}). Skipping rising edge calculation.")
-        relay_state = OFF
-        log_data(data, relay_state, temperature, humidity, baseline_pm25)
-# Function to stop the SPS30 measurement
-def stop_sps30():
-    sps.stop_measurement()
+    pm2_5_values = []
+
+    try:
+        with open(LOG_FILE_PATH, 'r') as file:
+            for line in file:
+                try:
+                    json_data = json.loads(line)
+                    pm2_5_values.append(json_data["pm2_5"])
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON: {e}")
+                    # Handle the error as needed
+
+            Last_10_PM25 = pm2_5_values[-10:]
+
+            if len(Last_10_PM25) >= WINDOW_SIZE:
+                if all(data_point > 1.1 * baseline_pm25 for data_point in Last_10_PM25):
+                    print(f"All last {WINDOW_SIZE} readings were above the baseline. Turning on relay.")
+                    GPIO.output(RELAY_PIN, GPIO.HIGH)
+                    relay_state = 'ON'
+                else:
+                    GPIO.output(RELAY_PIN, GPIO.LOW)
+                    relay_state = 'OFF'
+
+                log_data(data, relay_state, temperature, humidity, baseline_pm25)
+
+            else:
+                print(f"Not enough data points ({len(Last_10_PM25)} out of {WINDOW_SIZE}). Skipping rising edge calculation.")
+                relay_state = 'OFF'
+                log_data(data, relay_state, temperature, humidity, baseline_pm25)
+
+    except FileNotFoundError:
+        print(f"Error: File not found - {LOG_FILE_PATH}")
+    except Exception as e:
+        print(f"Error: {str(e)}")
 
 if __name__ == "__main__":
     try:
         sps = SPS30(1)
         setup_sps30()
-
-        while True:
-            check_rising_edge()
-            time.sleep(READING_INTERVAL)
+        check_rising_edge()
+        time.sleep(READING_INTERVAL)
 
     except KeyboardInterrupt:
         sps.stop_measurement()
         print("\nKeyboard interrupt detected. SPS30 turned off.")
+
