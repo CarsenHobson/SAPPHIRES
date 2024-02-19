@@ -90,7 +90,7 @@ def check_rising_edge():
                     # Handle the error as needed
             
             Last_10_PM25 = pm2_5_values[-10:]
-            Last_10_timestamps =  timestamp_values[-10]
+            Last_10_timestamps =  timestamp_values[-10:]
             if len(Last_10_PM25) >= WINDOW_SIZE and all(timestamp >= one_hour_ago for timestamp in Last_10_timestamps):
                 if all(data_point > 1.1 * baseline_pm25 for data_point in Last_10_PM25):
                     print(f"All last {WINDOW_SIZE} readings were above the baseline. Turning on relay.")
@@ -109,14 +109,19 @@ def check_rising_edge():
 
     except FileNotFoundError:
         print(f"Error: File not found - {LOG_FILE_PATH}")
-    except Exception as e:
-        print(f"Error: {str(e)}")
-
+    
 if __name__ == "__main__":
     try:
         sps = SPS30(1)
         setup_sps30()
         check_rising_edge()
+       
+
+    except KeyboardInterrupt:
+        sps.stop_measurement()
+        print("\nKeyboard interrupt detected. SPS30 turned off.")
+
+
        
 
     except KeyboardInterrupt:
