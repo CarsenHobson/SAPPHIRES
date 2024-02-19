@@ -114,7 +114,7 @@ if __name__ == "__main__":
         sps = SPS30(1)
         setup_sps30()
         check_rising_edge()
-        time.sleep(READING_INTERVAL)
+       
 
     except KeyboardInterrupt:
         sps.stop_measurement()
