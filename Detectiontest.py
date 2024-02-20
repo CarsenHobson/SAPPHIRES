@@ -23,6 +23,20 @@ LOG_FILE_PATH = "main.json"
 WINDOW_SIZE = 10  # Number of readings to consider
 BASELINE_THRESHOLD = 0.1
 
+def is_sunday_midnight():
+    # Get the current day of the week (0-6, where 0 is Monday and 6 is Sunday)
+    day_of_week = datetime.now().weekday()
+
+    # Get the current time in HHMM format
+    current_time = int(datetime.now().strftime('%H%M'))
+
+    # Check if it's Sunday and between 00:00 and 00:59
+    if day_of_week == 6 and 0 <= current_time <= 59:
+        return True  # It's Sunday between midnight and 1 AM
+    else:
+        return False  # It's not Sunday between midnight and 1 AM
+
+
 
 #Function to convert BME temp to Fahrenheit
 def celsius_to_fahrenheit(celsius):
@@ -112,9 +126,14 @@ def check_rising_edge():
     
 if __name__ == "__main__":
     try:
-        sps = SPS30(1)
-        setup_sps30()
-        check_rising_edge()
+        if is_sunday_midnight():
+            print("It's Sunday between midnight and 1 AM. Closing the program.")
+            sys.exit()
+        else:
+            print("It's not Sunday between midnight and 1 AM. Continue with the program.")
+            sps = SPS30(1)
+            setup_sps30()
+            check_rising_edge()
        
 
     except KeyboardInterrupt:
