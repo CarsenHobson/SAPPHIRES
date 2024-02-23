@@ -22,7 +22,7 @@ def log_data(pm2_5):
         print(f"Error writing to JSON file: {str(e)}")
 
 # Function to perform baseline measurement and update the file
-def update_baseline_value(baseline_duration=60):  # Set the baseline duration in seconds
+def update_baseline_value(baseline_duration=3600):  # Set the baseline duration in seconds
     baseline_data = []
 
     print(f"Performing baseline measurement for {baseline_duration} seconds...")
