@@ -5,6 +5,7 @@ import os
 from sps30 import SPS30
 import Adafruit_BME280
 from datetime import datetime
+import sys
 
 # Initialize GPIO for relay control
 RELAY_PIN = 19
@@ -153,7 +154,7 @@ def check_rising_edge():
     current_time = time.time()
     one_hour_ago = current_time - 1200
     try:
-        with open(LOG_FILE_PATH, 'r') as file:
+        with open(LOG_FILE_PATH1, 'r') as file:
             for line in file:
                 try:
                     json_data = json.loads(line)
