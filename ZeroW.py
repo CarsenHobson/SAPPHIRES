@@ -24,23 +24,22 @@ def celsius_to_fahrenheit(celsius):
 
 try:
     sps30.start_measurement()
-    while True:
-        sps30.read_measured_values()
-        pm25 = sps30.dict_values['pm2p5']
+    sps30.read_measured_values()
+    pm25 = sps30.dict_values['pm2p5']
 
-        temperature_celsius = bme280.read_temperature()
-        temperature = celsius_to_fahrenheit(temperature_celsius)
-        humidity = bme280.read_humidity()
+    temperature_celsius = bme280.read_temperature()
+    temperature = celsius_to_fahrenheit(temperature_celsius)
+    humidity = bme280.read_humidity()
 
-        sensor_data = {
-            "PM2.5": pm25,
-            "Temperature (F)": temperature,
-            "Humidity (%)": humidity,
-        }
+    sensor_data = {
+        "PM2.5": pm25,
+        "Temperature (F)": temperature,
+        "Humidity (%)": humidity,
+    }
 
-        client.publish(mqtt_topic, str(sensor_data))
-        print(sensor_data)
-        time.sleep(5)
+    client.publish(mqtt_topic, str(sensor_data))
+    print(sensor_data)
+    
 
 except KeyboardInterrupt:
     sps.stop_measurement()
