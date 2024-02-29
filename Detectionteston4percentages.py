@@ -1,7 +1,6 @@
 import time
 import RPi.GPIO as GPIO
 import json
-import os
 from sps30 import SPS30
 import Adafruit_BME280
 from datetime import datetime
@@ -24,7 +23,7 @@ LOG_FILE_PATH1 = "main1.json"
 LOG_FILE_PATH2 = "main2.json"
 LOG_FILE_PATH3 = "main3.json"
 LOG_FILE_PATH4 = "main4.json"
-WINDOW_SIZE = 10  # Number of readings to consider
+WINDOW_SIZE = 20 # Number of readings to consider
 BASELINE_THRESHOLD1 = 0.1
 BASELINE_THRESHOLD2 = 0.2
 BASELINE_THRESHOLD3 = 0.3
@@ -147,12 +146,13 @@ def check_rising_edge():
     temperature_celsius = bme280.read_temperature()
     temperature = celsius_to_fahrenheit(temperature_celsius)
     humidity = bme280.read_humidity()
+    setup_sps30()
     sps.read_measured_values()
     data = sps.dict_values['pm2p5']
     pm2_5_values = []
     timestamp_values = []
     current_time = time.time()
-    one_hour_ago = current_time - 1200
+    one_hour_ago = current_time - 3600
     try:
         with open(LOG_FILE_PATH1, 'r') as file:
             for line in file:
@@ -163,11 +163,12 @@ def check_rising_edge():
                 except json.JSONDecodeError as e:
                     print(f"Error decoding JSON: {e}")
                     # Handle the error as needed
-            
+            print(time.time())
             Last_10_PM25 = pm2_5_values[-20:]
             Last_10_timestamps =  timestamp_values[-20:]
-           
-            if len(Last_10_PM25) >= WINDOW_SIZE and all(timestamp >= one_hour_ago for timestamp in Last_10_timestamps):
+            print(Last_10_PM25)
+            print(Last_10_timestamps)
+            if len(pm2_5_values) >= WINDOW_SIZE and all(timestamp >= one_hour_ago for timestamp in Last_10_timestamps):
                
                 if all(data_point > (1 + BASELINE_THRESHOLD1) * baseline_pm25 for data_point in Last_10_PM25):
                     print(f"All last {WINDOW_SIZE} readings were above the baseline. Turning on relay.")
@@ -220,23 +221,17 @@ def check_rising_edge():
                 log_data4(data, relay_state, temperature, humidity, baseline_pm25)
 
     except FileNotFoundError:
-        print(f"Error: File not found - {LOG_FILE_PATH}")
+        print(f"Error: File not found - {LOG_FILE_PATH1}")
     
 if __name__ == "__main__":
     try:
         if is_between_5am_and_6am():
             sys.exit()
         else:
-            sps = SPS30(1)
-            setup_sps30()
             check_rising_edge()
-       
+            sps.stop_measurement()      
 
     except KeyboardInterrupt:
         sps.stop_measurement()
         print("\nKeyboard interrupt detected. SPS30 turned off.")
 
-
-    except KeyboardInterrupt:
-        sps.stop_measurement()
-        print("\nKeyboard interrupt detected. SPS30 turned off.")
