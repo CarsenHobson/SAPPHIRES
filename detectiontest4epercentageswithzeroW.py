@@ -180,7 +180,7 @@ def check_rising_edge():
     pm2_5_values = []
     timestamp_values = []
     current_time = time.time()
-    one_hour_ago = current_time - 1200
+    one_hour_ago = current_time - 3600
     data = mqtt_values
     data["pm2.5"] = float(data["pm2.5"])
     data["temperature"] = float(data["temperature"])
@@ -201,7 +201,7 @@ def check_rising_edge():
             Last_10_PM25 = pm2_5_values[-20:]
             Last_10_timestamps =  timestamp_values[-20:]
            
-            if len(Last_10_PM25) >= WINDOW_SIZE and all(timestamp >= one_hour_ago for timestamp in Last_10_timestamps):
+            if len(pm2_5_values) >= WINDOW_SIZE and all(timestamp >= one_hour_ago for timestamp in Last_10_timestamps):
                
                 if all(data_point > (1 + BASELINE_THRESHOLD1) * baseline_pm25 for data_point in Last_10_PM25):
                     print(f"All last {WINDOW_SIZE} readings were above the baseline. Turning on relay.")
@@ -323,4 +323,3 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         print("\nProgram stopped")
-
