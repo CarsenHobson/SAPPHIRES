@@ -1,21 +1,25 @@
 import time
 import paho.mqtt.client as mqtt
-from smbus2 import SMbus
 import Adafruit_BME280
 from sps30 import SPS30
-import board
-import busio
 
+mqtt_username = "SAPPHIRE"
+mqtt_password = "SAPPHIRE"
 broker_address = "10.42.0.1"
 mqtt_topic = "ZeroW"
-client = mqtt.Client()
+
+def on_publish(client, userdata, result):
+    pass
+
+client = mqtt.Client(CallbackAPIVersion.VERSION2)
+client.username_pw_set(mqtt_username, mqtt_password)
+client.on_publish = on_publish
+client.connect(broker_address, 1883, 60)
+
 
 bme280 = Adafruit_BME280.BME280(address=0x77)
 
 sps30 = SPS30(port=1)
-
-client.connect(broker_address, 1883, 60)
-client.loop_start()
 
 
 def celsius_to_fahrenheit(celsius):
@@ -37,7 +41,7 @@ try:
         "Humidity (%)": humidity,
     }
 
-    client.publish(mqtt_topic, str(sensor_data))
+    client.publish(mqtt_topic, str(sensor_data), qos=1)
     print(sensor_data)
     
 
