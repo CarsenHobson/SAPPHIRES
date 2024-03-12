@@ -11,7 +11,7 @@ mqtt_topic = "ZeroW"
 def on_publish(client, userdata, result):
     pass
 
-client = mqtt.Client(CallbackAPIVersion.VERSION2)
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 client.username_pw_set(mqtt_username, mqtt_password)
 client.on_publish = on_publish
 client.connect(broker_address, 1883, 60)
