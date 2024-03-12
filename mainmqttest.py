@@ -14,18 +14,6 @@ LOCAL_MQTT_TOPIC2 = "ZeroW2"
 LOCAL_MQTT_TOPIC3 = "ZeroW3"
 LOCAL_MQTT_TOPIC4 = "ZeroW4"
 
-REMOTE_MQTT_BROKER = "10.42.0.1"
-REMOTE_MQTT_PORT = 1883
-REMOTE_MQTT_TOPIC = "Maindata"
-REMOTE_MQTT_USERNAME = "SAPPHIRE"
-REMOTE_MQTT_PASSWORD = "SAPPHIRE"
-
-# Define constants
-BASELINE_DURATION = 30 * 60
-WINDOW_DURATION = 10 * 60
-BASELINE_THRESHOLD = 0.1
-READING_INTERVAL = 3
-LOG_INTERVAL = 60
 
 # File path for JSON data log
 LOG_FILE_PATH1 = "Data1.json"
@@ -57,11 +45,19 @@ def log_data(data, log_file_path):
     except Exception as e:
         print(f"Error writing to JSON file: {str(e)}")
 
+def on_subscribe(client, userdata, mid, reason_code_list, properties):
+    # Since we subscribed only for a single channel, reason_code_list contains
+    # a single entry
+    if reason_code_list[0].is_failure:
+        print(f"Broker rejected you subscription: {reason_code_list[0]}")
+    else:
+        print(f"Broker granted the following QoS: {reason_code_list[0].value}")
 # MQTT on_connect callback
-def on_connect(client, userdata, flags, rc):
-    print(f"Connected to MQTT broker with result code {rc}")
+def on_connect(client, userdata, flags, reason_code, properties):
+    print(f"Connected with result code {reason_code}")
+    # Subscribing in on_connect() means that if we lose the connection and
+    # reconnect then subscriptions will be renewed.
     client.subscribe([(LOCAL_MQTT_TOPIC1, 0), (LOCAL_MQTT_TOPIC2, 0), (LOCAL_MQTT_TOPIC3, 0), (LOCAL_MQTT_TOPIC4, 0)])
-
 # MQTT on_message callback
 def on_message(client, userdata, msg):
     global mqtt_values
@@ -78,6 +74,8 @@ def on_message(client, userdata, msg):
         if "Humidity (%)" in data_dict:
             mqtt_values["humidity"] = data_dict["Humidity (%)"]
 
+        print(f"Updated MQTT values: {mqtt_values}")
+
         # Determine the appropriate log file based on the topic
         if msg.topic == LOCAL_MQTT_TOPIC1:
             log_data(mqtt_values, LOG_FILE_PATH1)
@@ -88,8 +86,8 @@ def on_message(client, userdata, msg):
         elif msg.topic == LOCAL_MQTT_TOPIC4:
             log_data(mqtt_values, LOG_FILE_PATH4)
 
-    except ValueError:
-        pass
+    except Exception as e:
+        print(f"Error processing MQTT message: {e}")
 
 
 # Function to generate a random 8-character alphanumeric key for each entry
@@ -98,14 +96,23 @@ def generate_random_key():
     import secrets
     characters = string.ascii_letters + string.digits
     return ''.join(secrets.choice(characters) for _ in range(8))
-
 if __name__ == "__main__":
     try:
         create_json_files()
-        local_mqtt_client = mqtt.Client()
+        local_mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        local_mqtt_client.username_pw_set("SAPPHIRE", "SAPPHIRE")
         local_mqtt_client.on_connect = on_connect
         local_mqtt_client.on_message = on_message
         local_mqtt_client.connect(LOCAL_MQTT_BROKER, LOCAL_MQTT_PORT)
+
+        # Start the MQTT client loop in a non-blocking manner
         local_mqtt_client.loop_start()
+
+        # Sleep for a specified duration to allow time for processing messages
+        time.sleep(20)  # You can adjust this sleep duration as needed
+
     except KeyboardInterrupt:
         print("\nKeyboard interrupt detected. Code is stopped.")
+    finally:
+        local_mqtt_client.loop_stop()
+        local_mqtt_client.disconnect()
