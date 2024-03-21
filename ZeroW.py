@@ -43,7 +43,7 @@ try:
 
     client.publish(mqtt_topic, str(sensor_data), qos=1)
     print(sensor_data)
-    
+    sps.stop_measurement()
 
 except KeyboardInterrupt:
     sps.stop_measurement()
