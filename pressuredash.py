@@ -1,20 +1,9 @@
-import time
 import dash
 from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
 import dash_html_components as html
-from SDP810 import SDP810  # Assuming you have a library for SDP810
-from qwic_i2c import QwiicSteadyStateRelay
-
-# Initialize relays
-damper_relay = QwiicSteadyStateRelay()
-damper_relay.begin(17)  # Adjust pin as needed
-
-blower_relay = QwiicSteadyStateRelay()
-blower_relay.begin(18)  # Adjust pin as needed
-
-# Set up SDP810 sensor
-sdp = SDP810()
+import smbus
+import time
 
 # Initialize Dash app
 app = dash.Dash(__name__)
@@ -33,45 +22,49 @@ app.layout = html.Div([
     ),
 ])
 
-# Define callback to update control signals and display current pressure
+bus = smbus.SMBus(1)
+address = 0x25
+bus.write_i2c_block_data(address, 0x3F, [0xF9])
+time.sleep(0.8)
+
+bus.write_i2c_block_data(address, 0x36, [0x03])
+
+def read_sdp810(bus):
+    """Read data from the SDP810 sensor and return the differential pressure."""
+    try:
+        # Read data from the sensor
+        reading = bus.read_i2c_block_data(address, 0, 9)
+        pressure_value = reading[0] + float(reading[1]) / 255
+        
+        # Calculate differential pressure
+        if 0 <= pressure_value < 128:
+            differential_pressure = pressure_value * 240 / 256
+        elif 128 < pressure_value <= 256:
+            differential_pressure = -(256 - pressure_value) * 240 / 256
+        elif pressure_value == 128:
+            differential_pressure = float('inf')  # Invalid reading indicator
+
+        return differential_pressure
+    except Exception as e:
+        print(f"Error reading sensor data: {e}")
+        return None
+
+
+
+# Define callback to update the current pressure and display it on the dashboard
 @app.callback(
-    [Output('output-container-button', 'children'),
-     Output('desired-pressure', 'disabled')],
-    [Input('set-pressure-button', 'n_clicks')],
-    [State('desired-pressure', 'value')]
+    Output('output-container-button', 'children'),
+    [Input('interval-component', 'n_intervals')]
 )
-def update_output(n_clicks, desired_pressure):
-    if n_clicks > 0:
-        # Enable/disable input
-        disabled = True if n_clicks > 0 else False
-
-        # Proportional control constants
-        Kp_damper = 0.1  # Adjust as needed
-        Kp_blower = 0.1  # Adjust as needed
-
-        # Read pressure from SDP810
-        current_pressure = sdp.read_pressure()
-
-        # Calculate error
-        error = desired_pressure - current_pressure
-
-        # Calculate control signals
-        damper_control = Kp_damper * error
-        blower_control = Kp_blower * error
-
-        # Limit control signals to within [0, 1] range
-        damper_control = max(0, min(damper_control, 1))
-        blower_control = max(0, min(blower_control, 1))
-
-        # Apply control signals to relays
-        damper_relay.set_relay_state(damper_control)
-        blower_relay.set_relay_state(blower_control)
-
-        # Return output
-        output = f"Current Pressure: {current_pressure} Pa"
-        return output, disabled
+def update_current_pressure(n_intervals):
+    # Read current pressure from SDP810
+    differential_pressure = read_sdp810(bus)
+    
+    if differential_pressure is not None:
+        # Return the current pressure for display
+        return f"Current Pressure: {differential_pressure} Pa"
     else:
-        return '', False
+        return "Error reading sensor data"
 
 # Run the app
 if __name__ == '__main__':
