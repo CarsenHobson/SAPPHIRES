@@ -27,7 +27,6 @@ def celsius_to_fahrenheit(celsius):
 
 
 try:
-    sps30.start_measurement()
     sps30.read_measured_values()
     pm25 = sps30.dict_values['pm2p5']
 
@@ -43,7 +42,7 @@ try:
 
     client.publish(mqtt_topic, str(sensor_data), qos=1)
     print(sensor_data)
-    sps.stop_measurement()
+    
 
 except KeyboardInterrupt:
     sps.stop_measurement()
