@@ -87,7 +87,31 @@ def on_message(client, userdata, msg):
             log_data(mqtt_values, LOG_FILE_PATH4)
 
     except Exception as e:
-        print(f"Error processing MQTT message: {e}")
+        error_message = f"Error processing MQTT message: {e}"
+
+        # Determine if the error is from the main Raspberry Pi or the Raspberry Pi Zero Ws
+        if msg.topic in [LOCAL_MQTT_TOPIC1, LOCAL_MQTT_TOPIC2, LOCAL_MQTT_TOPIC3, LOCAL_MQTT_TOPIC4]:
+            error_origin = "Raspberry Pi Zero Ws"
+        else:
+            error_origin = "Main Raspberry Pi"
+
+        # Log the error message along with the origin
+        log_error(error_message, error_origin)
+
+# Function to log errors to a JSON file
+def log_error(error_message, error_origin):
+    current_time = int(time.time())
+    error_entry = {
+        "timestamp": current_time,
+        "error_message": error_message,
+        "error_origin": error_origin
+    }
+    try:
+        with open("error_log.json", "a") as error_file:
+            error_file.write(json.dumps(error_entry) + "\n")
+    except Exception as e:
+        print(f"Error writing to error log file: {str(e)}")
+
 
 
 # Function to generate a random 8-character alphanumeric key for each entry
