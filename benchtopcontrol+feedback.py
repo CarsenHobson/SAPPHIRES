@@ -1,131 +1,128 @@
 import dash
+from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
-import time
-import csv
-import RPi.GPIO as GPIO
 import smbus
-from qwic_i2c import QwiicSteadyStateRelay
+import time
+import qwiic_relay
 
 # Initialize Dash app
 app = dash.Dash(__name__)
 
-# Define GPIO pin for PWM control
-BLOWER_PWM_PIN = 12
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(BLOWER_PWM_PIN, GPIO.OUT)
+# Initialize Qwiic relay
+myRelays = qwiic_relay.QwiicRelay()
 
-# Variables
-button_pin = 18
-csv_file = 'data_log.csv'
-fieldnames = ['Timestamp', 'Pressure']
-logging = False
-
-# Set up PWM for blower control
-blower_pwm = GPIO.PWM(BLOWER_PWM_PIN, 1000)  # PWM frequency = 1000 Hz
-blower_pwm.start(0)  # Start PWM with duty cycle of 0%
-
-# Set up SDP810 sensor
-address = 0x25
-bus = smbus.SMBus(1)
-bus.write_i2c_block_data(address, 0x3F, [0xF9])
-time.sleep(0.8)
-bus.write_i2c_block_data(address, 0x36, [0x03])
-
-# Set up Qwiic relays for damper control
-damper_open_relay = QwiicSteadyStateRelay()
-damper_open_relay.begin(3)  # Relay 3 for opening the damper
-
-damper_close_relay = QwiicSteadyStateRelay()
-damper_close_relay.begin(4)  # Relay 4 for closing the damper
-
-# CSS styles
-styles = {
-    'textAlign': 'center',
-    'marginBottom': '30px'
+# Define colors
+colors = {
+    'background': '#f0f0f0',
+    'text': '#333333',
+    'button': '#1f77b4'
 }
 
 # Define app layout
-app.layout = html.Div([
-    html.H1("Differential Pressure Control Dashboard", style={'textAlign': 'center'}),
+app.layout = html.Div(style={'backgroundColor': colors['background'], 'padding': '50px'}, children=[
+    html.H1("Differential Pressure Control Dashboard", style={'textAlign': 'center', 'color': colors['text']}),
 
-    html.Div([
-        html.Label("Desired Pressure (Pa):", style={'fontSize': '20px', 'marginRight': '10px'}),
-        dcc.Input(id='desired-pressure', type='number', value=1000, style={'fontSize': '20px', 'width': '150px'}),
-        html.Div(id='output-container-button')
-    ], style=styles),
+    html.Label("Desired Pressure (Pa):"),
+    dcc.Input(id='desired-pressure', type='number', value=1000),
+    html.Button('Set Pressure', id='set-pressure-button', n_clicks=0),
+    html.Div(id='output-container-button'),
 
-    html.Div(id='current-pressure', style={'fontSize': '20px', 'marginTop': '20px'})
-], style={'maxWidth': '600px', 'margin': 'auto', 'padding': '20px'})
+    html.Div(children=[
+        html.Label("Blower Speed (%):", style={'fontSize': '20px', 'marginRight': '10px', 'color': colors['text']}),
+        dcc.Input(id='blower-speed', type='number', value=50, min=0, max=100, style={'fontSize': '20px', 'width': '150px'}),
+        html.Div(id='blower-output', style={'margin-top': '20px'})
+    ], style={'marginBottom': '30px', 'textAlign': 'center'}),
 
+    html.Div(children=[
+        html.Button('Toggle Damper', id='toggle-damper', n_clicks=0, style={'fontSize': '16px', 'padding': '10px 20px', 'backgroundColor': colors['button'], 'color': 'white', 'border': 'none'}),
+        html.Div(id='damper-status', style={'margin-top': '20px'})
+    ], style={'textAlign': 'center'})
+])
 
-# Define callback to control damper and blower
-@app.callback(
-    Output('output-container-button', 'children'),
-    [Input('desired-pressure', 'value')]
-)
-def update_output(desired_pressure):
-    global logging
-    if logging:
-        stop_logging()
-    else:
-        start_logging()
+bus = smbus.SMBus(1)
+address = 0x25
+bus.write_i2c_block_data(address, 0x3F, [0xF9])
+time.sleep(0.8)
 
-    while logging:
-        time.sleep(0.5)
+bus.write_i2c_block_data(address, 0x36, [0x03])
+
+def read_sdp810(bus):
+    """Read data from the SDP810 sensor and return the differential pressure."""
+    try:
+        # Read data from the sensor
         reading = bus.read_i2c_block_data(address, 0, 9)
         pressure_value = reading[0] + float(reading[1]) / 255
-        if pressure_value >= 0 and pressure_value < 128:
+        
+        # Calculate differential pressure
+        if 0 <= pressure_value < 128:
             differential_pressure = pressure_value * 240 / 256
-        elif pressure_value > 128 and pressure_value <= 256:
+        elif 128 < pressure_value <= 256:
             differential_pressure = -(256 - pressure_value) * 240 / 256
         elif pressure_value == 128:
-            differential_pressure = 99999999
+            differential_pressure = float('inf')  # Invalid reading indicator
 
-        # Calculate the difference between desired pressure and current pressure
-        pressure_difference = desired_pressure - differential_pressure
+        return differential_pressure
+    except Exception as e:
+        print(f"Error reading sensor data: {e}")
+        return None
 
-        # Adjust blower speed based on pressure difference
-        blower_speed = max(min(100 + pressure_difference, 100), 0)  # Ensure blower_speed stays within 0-100
-        blower_pwm.ChangeDutyCycle(blower_speed)
+# Callback to adjust blower speed and toggle damper
+@app.callback(
+    [Output('blower-output', 'children'), Output('damper-status', 'children')],
+    [Input('blower-speed', 'value'), Input('toggle-damper', 'n_clicks')],
+    [State('desired-pressure', 'value')]
+)
+def update_blower_and_damper(blower_speed, n_clicks, desired_pressure):
+    try:
+        if n_clicks is not None and n_clicks > 0:  # Toggle on odd clicks
+            myRelays.set_relay_on(1)
+            time.sleep(0.5)
+            myRelays.set_relay_off(1)
+            damper_status = "Damper Toggled"
+        else:
+            myRelays.set_relay_off(1)
+            damper_status = ""
 
-        # Control damper position based on desired pressure
-
-
-        # Open the damper (relay 3)
-        damper_open_relay.set_relay_state(1)
-        time.sleep(duration)
-
-        # Close the damper (relay 4)
-        damper_close_relay.set_relay_state(1)
-        time.sleep(duration)
-
+        differential_pressure = read_sdp810(bus)
+        if differential_pressure is not None:
+            if differential_pressure < desired_pressure:
+                myRelays.set_slow_pwm(2, blower_speed*0.01*120)
+                blower_output = f"Blower Speed Set to: {blower_speed}%"
+            else:
+                myRelays.set_slow_pwm(2, 0)  # Stop blower
+                blower_output = "Pressure reached desired level, blower stopped."
+        else:
+            blower_output = "Error reading sensor data"
+        
         return html.Div([
-            html.H3(f"Desired Pressure Set to: {desired_pressure} Pa", style={'color': '#2ca02c', 'marginTop': '20px'})
+            html.P(blower_output, style={'color': colors['text']})
+        ]), html.Div([
+            html.P(damper_status, style={'color': colors['text']})
+        ])
+    except Exception as e:
+        print(f"Error: {e}")
+        return html.Div([
+            html.P("Error occurred.", style={'color': colors['text']})
         ])
 
-# Function to control damper position based on desired pressure
-
-
-
-# Callback to display current pressure
+# Define callback to update the current pressure and display it on the dashboard
 @app.callback(
-    Output('current-pressure', 'children'),
-    [Input('desired-pressure', 'value')]
+    Output('output-container-button', 'children'),
+    [Input('blower-speed', 'value'), Input('toggle-damper', 'n_clicks')]
 )
-def update_current_pressure(desired_pressure):
-    reading = bus.read_i2c_block_data(address, 0, 9)
-    pressure_value = reading[0] + float(reading[1]) / 255
-    if pressure_value >= 0 and pressure_value < 128:
-        differential_pressure = pressure_value * 240 / 256
-    elif pressure_value > 128 and pressure_value <= 256:
-        differential_pressure = -(256 - pressure_value) * 240 / 256
-    elif pressure_value == 128:
-        differential_pressure = 99999999
+def update_current_pressure(blower_speed, n_clicks):
+    try:
+        differential_pressure = read_sdp810(bus)
+        if differential_pressure is not None:
+            return f"Current Pressure: {differential_pressure} Pa"
+        else:
+            return "Error reading sensor data"
+    except Exception as e:
+        print(f"Error: {e}")
+        return "Error occurred."
 
-    return f"Current Pressure: {differential_pressure} Pa"
-
-
-if __name__ == "__main__":
+# Run the app
+if __name__ == '__main__':
     app.run_server(debug=True)
+
