@@ -35,17 +35,17 @@ def get_wifi_strength():
             signal_strength = line.split('Signal level=')[-1].split(' ')[0]
             # Convert signal strength to dBm
             signal_strength_dbm = int(signal_strength.replace('dBm', ''))
-            # Convert dBm to percentage (example conversion)
+            # Convert dBm to percentage (clamp to ensure it's within 0-100 range)
             # Adjust reference values according to your network's characteristics
             max_signal_strength = -30  # dBm
             min_signal_strength = -100  # dBm
-            signal_strength_percentage = (
-                (signal_strength_dbm - min_signal_strength) /
-                (max_signal_strength - min_signal_strength)
-            ) * 100
+            signal_strength_percentage = max(
+                0, min(100, (signal_strength_dbm - min_signal_strength) /
+                       (max_signal_strength - min_signal_strength) * 100))
             return signal_strength_percentage
 
     return None
+
 
 try:
     sps30.read_measured_values()
