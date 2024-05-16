@@ -31,11 +31,19 @@ def get_wifi_strength():
     # Find the line containing the signal strength
     for line in output_lines:
         if 'Signal level=' in line:
-            # Extract the signal strength value
+            # Extract the signal strength value in dBm
             signal_strength = line.split('Signal level=')[-1].split(' ')[0]
             # Convert signal strength to dBm
             signal_strength_dbm = int(signal_strength.replace('dBm', ''))
-            return signal_strength_dbm
+            # Convert dBm to percentage (example conversion)
+            # Adjust reference values according to your network's characteristics
+            max_signal_strength = -30  # dBm
+            min_signal_strength = -100  # dBm
+            signal_strength_percentage = (
+                (signal_strength_dbm - min_signal_strength) /
+                (max_signal_strength - min_signal_strength)
+            ) * 100
+            return signal_strength_percentage
 
     return None
 
