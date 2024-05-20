@@ -1,38 +1,44 @@
 import time
-import RPi.GPIO as GPIO
-import json
 import os
-import paho.mqtt.client as mqtt
-import requests
+import json
 import ast
+import logging
+import secrets
+import string
+import paho.mqtt.client as mqtt
 
-# MQTT broker settings
+# MQTT broker settings (Consider moving these to a configuration file)
 LOCAL_MQTT_BROKER = "10.42.0.1"
 LOCAL_MQTT_PORT = 1883
-LOCAL_MQTT_TOPIC1 = "ZeroW1"
-LOCAL_MQTT_TOPIC2 = "ZeroW2"
-LOCAL_MQTT_TOPIC3 = "ZeroW3"
-LOCAL_MQTT_TOPIC4 = "ZeroW4"
+LOCAL_MQTT_TOPICS = ["ZeroW1", "ZeroW2", "ZeroW3", "ZeroW4"]
 
-
-# File path for JSON data log
-LOG_FILE_PATH1 = "Data1.json"
-LOG_FILE_PATH2 = "Data2.json"
-LOG_FILE_PATH3 = "Data3.json"
-LOG_FILE_PATH4 = "Data4.json"
+# File paths for JSON data log
+LOG_FILE_PATHS = {
+    "ZeroW1": "Data1.json",
+    "ZeroW2": "Data2.json",
+    "ZeroW3": "Data3.json",
+    "ZeroW4": "Data4.json"
+}
+ERROR_LOG_FILE = "error_log.json"
 
 # Initialize global variables
 mqtt_values = {"pm2.5": 0, "temperature": 0, "humidity": 0}
 
-# Create the JSON files if they don't exist
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
+
 def create_json_files():
-    for path in [LOG_FILE_PATH1, LOG_FILE_PATH2, LOG_FILE_PATH3, LOG_FILE_PATH4]:
+    """Create JSON files if they do not exist."""
+    for path in LOG_FILE_PATHS.values():
         if not os.path.exists(path):
             with open(path, "w") as json_file:
                 json_file.write("[]")
+    if not os.path.exists(ERROR_LOG_FILE):
+        with open(ERROR_LOG_FILE, "w") as error_file:
+            error_file.write("[]")
 
-# Function to log data (including relay state) to the JSON file
 def log_data(data, log_file_path):
+    """Log data to the specified JSON file."""
     current_time = int(time.time())
     entry_with_timestamp_and_key = {
         "timestamp": current_time,
@@ -43,29 +49,28 @@ def log_data(data, log_file_path):
         with open(log_file_path, "a") as json_file:
             json_file.write(json.dumps(entry_with_timestamp_and_key) + "\n")
     except Exception as e:
-        print(f"Error writing to JSON file: {str(e)}")
+        logging.error(f"Error writing to JSON file {log_file_path}: {e}")
 
 def on_subscribe(client, userdata, mid, reason_code_list, properties):
-    # Since we subscribed only for a single channel, reason_code_list contains
-    # a single entry
+    """Handle MQTT subscription acknowledgment."""
     if reason_code_list[0].is_failure:
-        print(f"Broker rejected you subscription: {reason_code_list[0]}")
+        logging.warning(f"Broker rejected subscription: {reason_code_list[0]}")
     else:
-        print(f"Broker granted the following QoS: {reason_code_list[0].value}")
-# MQTT on_connect callback
+        logging.info(f"Broker granted QoS: {reason_code_list[0].value}")
+
 def on_connect(client, userdata, flags, reason_code, properties):
-    print(f"Connected with result code {reason_code}")
-    # Subscribing in on_connect() means that if we lose the connection and
-    # reconnect then subscriptions will be renewed.
-    client.subscribe([(LOCAL_MQTT_TOPIC1, 0), (LOCAL_MQTT_TOPIC2, 0), (LOCAL_MQTT_TOPIC3, 0), (LOCAL_MQTT_TOPIC4, 0)])
-# MQTT on_message callback
+    """Handle MQTT connection event."""
+    logging.info(f"Connected with result code {reason_code}")
+    client.subscribe([(topic, 0) for topic in LOCAL_MQTT_TOPICS])
+
 def on_message(client, userdata, msg):
+    """Handle incoming MQTT messages."""
     global mqtt_values
 
     try:
-        data_str = msg.payload.decode("utf-8")  # Convert the MQTT message to a string
-        data_dict = ast.literal_eval(data_str)  # Safely evaluate the string as a dictionary
-        print(f"Received MQTT values: {data_dict}")
+        data_str = msg.payload.decode("utf-8")
+        data_dict = ast.literal_eval(data_str)
+        logging.info(f"Received MQTT values: {data_dict}")
 
         if "PM2.5" in data_dict:
             mqtt_values["pm2.5"] = data_dict["PM2.5"]
@@ -74,32 +79,18 @@ def on_message(client, userdata, msg):
         if "Humidity (%)" in data_dict:
             mqtt_values["humidity"] = data_dict["Humidity (%)"]
 
-        print(f"Updated MQTT values: {mqtt_values}")
+        logging.info(f"Updated MQTT values: {mqtt_values}")
 
-        # Determine the appropriate log file based on the topic
-        if msg.topic == LOCAL_MQTT_TOPIC1:
-            log_data(mqtt_values, LOG_FILE_PATH1)
-        elif msg.topic == LOCAL_MQTT_TOPIC2:
-            log_data(mqtt_values, LOG_FILE_PATH2)
-        elif msg.topic == LOCAL_MQTT_TOPIC3:
-            log_data(mqtt_values, LOG_FILE_PATH3)
-        elif msg.topic == LOCAL_MQTT_TOPIC4:
-            log_data(mqtt_values, LOG_FILE_PATH4)
+        log_file_path = LOG_FILE_PATHS.get(msg.topic)
+        if log_file_path:
+            log_data(mqtt_values, log_file_path)
 
     except Exception as e:
         error_message = f"Error processing MQTT message: {e}"
+        log_error(error_message, "Raspberry Pi Zero Ws" if msg.topic in LOCAL_MQTT_TOPICS else "Main Raspberry Pi")
 
-        # Determine if the error is from the main Raspberry Pi or the Raspberry Pi Zero Ws
-        if msg.topic in [LOCAL_MQTT_TOPIC1, LOCAL_MQTT_TOPIC2, LOCAL_MQTT_TOPIC3, LOCAL_MQTT_TOPIC4]:
-            error_origin = "Raspberry Pi Zero Ws"
-        else:
-            error_origin = "Main Raspberry Pi"
-
-        # Log the error message along with the origin
-        log_error(error_message, error_origin)
-
-# Function to log errors to a JSON file
 def log_error(error_message, error_origin):
+    """Log errors to a JSON file."""
     current_time = int(time.time())
     error_entry = {
         "timestamp": current_time,
@@ -107,36 +98,35 @@ def log_error(error_message, error_origin):
         "error_origin": error_origin
     }
     try:
-        with open("error_log.json", "a") as error_file:
+        with open(ERROR_LOG_FILE, "a") as error_file:
             error_file.write(json.dumps(error_entry) + "\n")
     except Exception as e:
-        print(f"Error writing to error log file: {str(e)}")
+        logging.error(f"Error writing to error log file: {e}")
 
-
-
-# Function to generate a random 8-character alphanumeric key for each entry
 def generate_random_key():
-    import string
-    import secrets
+    """Generate a random 8-character alphanumeric key."""
     characters = string.ascii_letters + string.digits
     return ''.join(secrets.choice(characters) for _ in range(8))
-if __name__ == "__main__":
+
+def main():
+    """Main function to run the MQTT client."""
+    create_json_files()
+
+    local_mqtt_client = mqtt.Client()
+    local_mqtt_client.username_pw_set("SAPPHIRE", "SAPPHIRE")
+    local_mqtt_client.on_connect = on_connect
+    local_mqtt_client.on_message = on_message
+
     try:
-        create_json_files()
-        local_mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-        local_mqtt_client.username_pw_set("SAPPHIRE", "SAPPHIRE")
-        local_mqtt_client.on_connect = on_connect
-        local_mqtt_client.on_message = on_message
         local_mqtt_client.connect(LOCAL_MQTT_BROKER, LOCAL_MQTT_PORT)
-
-        # Start the MQTT client loop in a non-blocking manner
         local_mqtt_client.loop_start()
-
-        # Sleep for a specified duration to allow time for processing messages
-        time.sleep(20)  # You can adjust this sleep duration as needed
-
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
-        print("\nKeyboard interrupt detected. Code is stopped.")
+        logging.info("Keyboard interrupt detected. Stopping.")
     finally:
         local_mqtt_client.loop_stop()
         local_mqtt_client.disconnect()
+
+if __name__ == "__main__":
+    main()
