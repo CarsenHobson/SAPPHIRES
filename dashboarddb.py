@@ -23,6 +23,15 @@ def get_latest_values():
                 "humidity": result[4],
                 "wifi_strength": result[5],
             }
+        else:
+            latest_values[table] = {
+                "timestamp": None,
+                "key": None,
+                "pm25": None,
+                "temperature": None,
+                "humidity": None,
+                "wifi_strength": None,
+            }
 
     conn.close()
     return latest_values
@@ -45,10 +54,12 @@ app.layout = html.Div([
 )
 def update_dashboard(n):
     data = get_latest_values()
+    print("Data retrieved:", data)  # Debugging statement
     cards = []
     for topic, values in data.items():
         card = html.Div([
             html.H3(topic, style={'textAlign': 'center'}),
+            html.P(f"Timestamp: {values['timestamp']}", style={'textAlign': 'center'}),
             html.P(f"PM2.5: {values['pm25']}", style={'textAlign': 'center'}),
             html.P(f"Temperature: {values['temperature']} °F", style={'textAlign': 'center'}),
             html.P(f"Humidity: {values['humidity']} %", style={'textAlign': 'center'}),
@@ -65,3 +76,4 @@ def update_dashboard(n):
 
 if __name__ == '__main__':
     app.run_server(debug=True)
+
