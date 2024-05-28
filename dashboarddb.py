@@ -1,4 +1,3 @@
-# dashboard.py
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
@@ -11,22 +10,34 @@ def get_latest_values():
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
     latest_values = {}
-    for table in ["ZeroW1", "ZeroW2", "ZeroW3", "ZeroW4"]:
-        cursor.execute(f"SELECT * FROM {table} ORDER BY timestamp DESC LIMIT 1")
-        result = cursor.fetchone()
-        if result:
-            readable_timestamp = datetime.fromtimestamp(result[0]).strftime('%Y-%m-%d %H:%M:%S')
+    tables = ["ZeroW1", "ZeroW2", "ZeroW3", "ZeroW4"]
+
+    for table in tables:
+        try:
+            cursor.execute(f"SELECT * FROM {table} ORDER BY timestamp DESC LIMIT 1")
+            result = cursor.fetchone()
+            if result:
+                readable_timestamp = datetime.fromtimestamp(result[0]).strftime('%Y-%m-%d %H:%M:%S')
+                latest_values[table] = {
+                    "timestamp": readable_timestamp,
+                    "key": result[1],
+                    "pm25": result[2],
+                    "temperature": result[3],
+                    "humidity": result[4],
+                    "wifi_strength": result[5],
+                }
+            else:
+                latest_values[table] = {
+                    "timestamp": "No data",
+                    "key": None,
+                    "pm25": None,
+                    "temperature": None,
+                    "humidity": None,
+                    "wifi_strength": None,
+                }
+        except Exception as e:
             latest_values[table] = {
-                "timestamp": readable_timestamp,
-                "key": result[1],
-                "pm25": result[2],
-                "temperature": result[3],
-                "humidity": result[4],
-                "wifi_strength": result[5],
-            }
-        else:
-            latest_values[table] = {
-                "timestamp": "No data",
+                "timestamp": f"Error: {str(e)}",
                 "key": None,
                 "pm25": None,
                 "temperature": None,
@@ -85,4 +96,3 @@ def update_dashboard(n):
 
 if __name__ == '__main__':
     app.run_server(debug=True, host='0.0.0.0')
-
