@@ -2,6 +2,7 @@ import dash
 from dash import html, dcc
 import sqlite3
 from dash.dependencies import Input, Output
+from datetime import datetime
 
 DATABASE_NAME = "mqtt_data.db"
 
@@ -15,8 +16,10 @@ def get_latest_values():
         cursor.execute(f"SELECT * FROM {table} ORDER BY timestamp DESC LIMIT 1")
         result = cursor.fetchone()
         if result:
+            # Convert Unix timestamp to human-readable format
+            readable_timestamp = datetime.fromtimestamp(result[0]).strftime('%Y-%m-%d %H:%M:%S')
             latest_values[table] = {
-                "timestamp": result[0],
+                "timestamp": readable_timestamp,
                 "key": result[1],
                 "pm25": result[2],
                 "temperature": result[3],
