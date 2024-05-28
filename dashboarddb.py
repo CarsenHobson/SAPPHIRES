@@ -45,8 +45,9 @@ app.layout = html.Div([
         id='interval-component',
         interval=60*1000,  # in milliseconds (refresh every minute)
         n_intervals=0
-    )
-])
+    ),
+    html.Footer("MQTT Dashboard © 2024", style={'textAlign': 'center', 'padding': '20px', 'background': '#f1f1f1', 'marginTop': '30px'})
+], style={'fontFamily': 'Arial, sans-serif', 'backgroundColor': '#f9f9f9', 'padding': '20px'})
 
 @app.callback(
     Output('dashboard', 'children'),
@@ -54,26 +55,30 @@ app.layout = html.Div([
 )
 def update_dashboard(n):
     data = get_latest_values()
-    print("Data retrieved:", data)  # Debugging statement
     cards = []
     for topic, values in data.items():
         card = html.Div([
-            html.H3(topic, style={'textAlign': 'center'}),
-            html.P(f"Timestamp: {values['timestamp']}", style={'textAlign': 'center'}),
-            html.P(f"PM2.5: {values['pm25']}", style={'textAlign': 'center'}),
-            html.P(f"Temperature: {values['temperature']} °F", style={'textAlign': 'center'}),
-            html.P(f"Humidity: {values['humidity']} %", style={'textAlign': 'center'}),
-            html.P(f"Wifi Strength: {values['wifi_strength']}", style={'textAlign': 'center'})
+            html.H3(topic, style={'textAlign': 'center', 'backgroundColor': '#007BFF', 'color': 'white', 'padding': '10px', 'borderRadius': '5px 5px 0 0'}),
+            html.Div([
+                html.P(f"Timestamp: {values['timestamp']}", style={'textAlign': 'center'}),
+                html.P(f"PM2.5: {values['pm25']}", style={'textAlign': 'center'}),
+                html.P(f"Temperature: {values['temperature']} °F", style={'textAlign': 'center'}),
+                html.P(f"Humidity: {values['humidity']} %", style={'textAlign': 'center'}),
+                html.P(f"Wifi Strength: {values['wifi_strength']}", style={'textAlign': 'center'})
+            ], style={'padding': '10px'})
         ], style={
             'border': '1px solid #ccc',
-            'padding': '10px',
             'borderRadius': '10px',
             'width': '200px',
-            'margin': '10px'
+            'margin': '10px',
+            'boxShadow': '0 4px 8px 0 rgba(0, 0, 0, 0.2)',
+            'transition': '0.3s',
+            'backgroundColor': 'white'
         })
         cards.append(card)
     return cards
 
 if __name__ == '__main__':
     app.run_server(debug=True)
+
 
