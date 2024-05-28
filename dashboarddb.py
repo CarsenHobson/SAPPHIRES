@@ -1,3 +1,4 @@
+# dashboard.py
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
@@ -83,7 +84,5 @@ def update_dashboard(n):
         return html.H3("No recent data available.", className='text-center mt-4')
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
-
-
+    app.run_server(debug=True, host='0.0.0.0')
 
