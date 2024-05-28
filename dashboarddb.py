@@ -1,7 +1,7 @@
 import dash
-from dash import html, dcc
-import sqlite3
+from dash import dcc, html
 from dash.dependencies import Input, Output
+import sqlite3
 from datetime import datetime
 
 DATABASE_NAME = "mqtt_data.db"
@@ -35,88 +35,55 @@ def get_latest_values():
     conn.close()
     return latest_values
 
-app = dash.Dash(__name__)
+external_stylesheets = ['https://stackpath.bootstrapcdn.com/bootswatch/4.5.2/litera/bootstrap.min.css']
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 app.layout = html.Div([
-    html.Header("MQTT Sensor Dashboard", style={
-        'textAlign': 'center', 
-        'padding': '20px', 
-        'backgroundColor': '#343a40', 
-        'color': 'white', 
-        'fontSize': '24px'
-    }),
-    html.Div(id='dashboard', style={
-        'display': 'flex',
-        'flexWrap': 'wrap',
-        'justifyContent': 'center',
-        'alignItems': 'center',
-        'gap': '30px',
-        'padding': '30px'
-    }),
+    html.Div([
+        html.H1("MQTT Sensor Dashboard", className='display-4 text-center mb-4', style={'color': '#343a40'}),
+        html.Div(id='live-update-text')
+    ], className='jumbotron', style={'background-color': '#f8f9fa', 'border-radius': '15px', 'padding': '20px'}),
     dcc.Interval(
         id='interval-component',
-        interval=60*1000,
+        interval=60*1000,  # in milliseconds (refresh every minute)
         n_intervals=0
-    ),
-    html.Footer("MQTT Dashboard © 2024", style={
-        'textAlign': 'center',
-        'padding': '10px',
-        'backgroundColor': '#343a40',
-        'color': 'white',
-        'marginTop': 'auto'
-    })
-], style={
-    'fontFamily': 'Arial, sans-serif',
-    'backgroundColor': '#f8f9fa',
-    'margin': '0',
-    'minHeight': '100vh',
-    'display': 'flex',
-    'flexDirection': 'column'
-})
+    )
+], className='container-fluid', style={'background-color': '#e9ecef'})
 
 @app.callback(
-    Output('dashboard', 'children'),
+    Output('live-update-text', 'children'),
     [Input('interval-component', 'n_intervals')]
 )
 def update_dashboard(n):
     data = get_latest_values()
-    cards = []
-    for topic, values in data.items():
-        card = html.Div([
-            html.Div([
-                html.H3(topic, style={
-                    'textAlign': 'center',
-                    'backgroundColor': '#007BFF',
-                    'color': 'white',
-                    'padding': '10px',
-                    'borderRadius': '5px 5px 0 0'
-                }),
-                html.Div([
-                    html.P(f"Timestamp: {values['timestamp']}", style={'margin': '5px 0'}),
-                    html.P(f"PM2.5: {values['pm25']}", style={'margin': '5px 0'}),
-                    html.P(f"Temperature: {values['temperature']} °F", style={'margin': '5px 0'}),
-                    html.P(f"Humidity: {values['humidity']} %", style={'margin': '5px 0'}),
-                    html.P(f"Wifi Strength: {values['wifi_strength']}", style={'margin': '5px 0'})
-                ], style={
-                    'padding': '20px', 
-                    'backgroundColor': 'white', 
-                    'borderRadius': '0 0 5px 5px'
-                })
-            ], style={
-                'border': '1px solid #ccc',
-                'borderRadius': '10px',
-                'boxShadow': '0 4px 8px 0 rgba(0, 0, 0, 0.2)',
-                'transition': '0.3s',
-                'backgroundColor': 'white'
-            }),
-        ], style={'width': '300px', 'margin': '20px'})
-        cards.append(card)
-    return cards
+    if data:
+        data_display = []
+        for topic, values in data.items():
+            data_display.append(html.Div([
+                html.H3(topic, className='text-info mb-3'),
+                html.Table([
+                    html.Thead(html.Tr([
+                        html.Th("Time", style={'background-color': '#343a40', 'color': 'white'}),
+                        html.Th("PM2.5", style={'background-color': '#343a40', 'color': 'white'}),
+                        html.Th("Humidity", style={'background-color': '#343a40', 'color': 'white'}),
+                        html.Th("Temperature (F)", style={'background-color': '#343a40', 'color': 'white'}),
+                        html.Th("Wifi Strength (%)", style={'background-color': '#343a40', 'color': 'white'})
+                    ])),
+                    html.Tbody(html.Tr([
+                        html.Td(values['timestamp']),
+                        html.Td(values['pm25']),
+                        html.Td(values['humidity']),
+                        html.Td(values['temperature']),
+                        html.Td(values['wifi_strength'])
+                    ]))
+                ], className='table table-striped table-bordered')
+            ]))
+        return data_display
+    else:
+        return html.H3("No recent data available.", className='text-center mt-4')
 
 if __name__ == '__main__':
     app.run_server(debug=True)
-
-
 
 
 
