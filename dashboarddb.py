@@ -1,10 +1,43 @@
 import dash
 from dash import dcc, html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import sqlite3
 from datetime import datetime
+import time
+import paho.mqtt.client as mqtt
 
 DATABASE_NAME = "mqtt_data.db"
+MQTT_BROKER = "mqtt.eclipseprojects.io"
+MQTT_PORT = 1883
+
+def on_publish(client, userdata, mid):
+    try:
+        userdata.remove(mid)
+    except KeyError:
+        print("on_publish() is called with a mid not present in unacked_publish")
+        print("This is due to an unavoidable race-condition:")
+        print("* publish() return the mid of the message sent.")
+        print("* mid from publish() is added to unacked_publish by the main thread")
+        print("* on_publish() is called by the loop_start thread")
+        print("While unlikely (because on_publish() will be called after a network round-trip),")
+        print(" this is a race-condition that COULD happen")
+        print("")
+        print("The best solution to avoid race-condition is using the msg_info from publish()")
+        print("We could also try using a list of acknowledged mid rather than removing from pending list,")
+        print("but remember that mid could be re-used !")
+
+unacked_publish = set()
+mqtt_client = mqtt.Client()
+mqtt_client.on_publish = on_publish
+
+mqtt_client.user_data_set(unacked_publish)
+mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
+mqtt_client.loop_start()
+
+def send_mqtt_message(topic, message):
+    msg_info = mqtt_client.publish(topic, message, qos=1)
+    unacked_publish.add(msg_info.mid)
+    msg_info.wait_for_publish()
 
 def get_latest_values():
     conn = sqlite3.connect(DATABASE_NAME)
@@ -88,11 +121,30 @@ def update_dashboard(n):
                         html.Td(values['temperature']),
                         html.Td(values['wifi_strength'])
                     ]))
-                ], className='table table-striped table-bordered')
+                ], className='table table-striped table-bordered'),
+                html.Button('Reboot', id=f'{topic}-button', n_clicks=0, className='btn btn-warning mt-2')
             ]))
         return data_display
     else:
         return html.H3("No recent data available.", className='text-center mt-4')
 
+@app.callback(
+    Output('dummy-output', 'children'),
+    [Input(f'ZeroW{i+1}-button', 'n_clicks') for i in range(4)]
+)
+def handle_button_clicks(*args):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return ''
+    
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    if button_id:
+        send_mqtt_message("reset", "reboot")
+    
+    return ''
+
+app.layout.children.append(html.Div(id='dummy-output', style={'display': 'none'}))
+
 if __name__ == '__main__':
     app.run_server(debug=True, host='0.0.0.0')
+
