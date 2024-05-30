@@ -32,7 +32,7 @@ def on_unsubscribe(client, userdata, mid, reason_code_list, properties):
         print(f"Broker replied with failure: {reason_code_list[0]}")
 
 if __name__ == "__main__":
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION5)
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
     client.on_message = on_message
     client.on_subscribe = on_subscribe
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     client.connect(MQTT_BROKER, MQTT_PORT, 60)
     client.loop_start()
 
-    # Wait for 20 seconds to receive the message
+    # Wait for59 seconds to receive the message
     time.sleep(59)
 
     client.loop_stop()
