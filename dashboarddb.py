@@ -24,7 +24,7 @@ def init_mqtt_client():
 
 
 # Publish sensor data or error message
-def publish_data():
+def publish_message():
     try:
         client.publish('reboot', 'reset', qos=1)
         logging.info(f"Sent reset")
@@ -134,7 +134,7 @@ def handle_button_clicks(*args):
     
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
     if button_id:
-        publish_data()
+        publish_message()
     
     return ''
 
