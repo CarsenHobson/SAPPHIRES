@@ -7,37 +7,30 @@ import time
 import paho.mqtt.client as mqtt
 
 DATABASE_NAME = "mqtt_data.db"
-MQTT_BROKER = "mqtt.eclipseprojects.io"
+MQTT_BROKER = "10.42.0.1"
 MQTT_PORT = 1883
+MQTT_USERNAME = "SAPPHIRE"
+MQTT_PASSWORD = "SAPPHIRE"
 
-def on_publish(client, userdata, mid):
+def on_publish(client, userdata, result):
+    pass
+
+def init_mqtt_client():
+    client = mqtt.Client()
+    client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+    client.on_publish = on_publish
+    client.connect(BROKER_ADDRESS, MQTT_PORT, 60)
+    return client
+
+
+# Publish sensor data or error message
+def publish_data():
     try:
-        userdata.remove(mid)
-    except KeyError:
-        print("on_publish() is called with a mid not present in unacked_publish")
-        print("This is due to an unavoidable race-condition:")
-        print("* publish() return the mid of the message sent.")
-        print("* mid from publish() is added to unacked_publish by the main thread")
-        print("* on_publish() is called by the loop_start thread")
-        print("While unlikely (because on_publish() will be called after a network round-trip),")
-        print(" this is a race-condition that COULD happen")
-        print("")
-        print("The best solution to avoid race-condition is using the msg_info from publish()")
-        print("We could also try using a list of acknowledged mid rather than removing from pending list,")
-        print("but remember that mid could be re-used !")
-
-unacked_publish = set()
-mqtt_client = mqtt.Client()
-mqtt_client.on_publish = on_publish
-
-mqtt_client.user_data_set(unacked_publish)
-mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
-mqtt_client.loop_start()
-
-def send_mqtt_message(topic, message):
-    msg_info = mqtt_client.publish(topic, message, qos=1)
-    unacked_publish.add(msg_info.mid)
-    msg_info.wait_for_publish()
+        client.publish('reboot', 'reset', qos=1)
+        logging.info(f"Sent reset")
+    except Exception as e:
+        error_message = f"Error publishing"
+        logging.error(error_message)
 
 def get_latest_values():
     conn = sqlite3.connect(DATABASE_NAME)
@@ -141,10 +134,9 @@ def handle_button_clicks(*args):
     
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
     if button_id:
-        send_mqtt_message("reset", "reboot")
+        publish_data()
     
     return ''
 
 if __name__ == '__main__':
     app.run_server(debug=True, host='0.0.0.0')
-
