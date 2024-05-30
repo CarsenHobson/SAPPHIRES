@@ -24,9 +24,9 @@ def init_mqtt_client():
 
 
 # Publish sensor data or error message
-def publish_message():
+def publish_message(topic):
     try:
-        client.publish('reboot', 'reset', qos=1)
+        client.publish('reboot', topic, qos=1)
         logging.info(f"Sent reset")
     except Exception as e:
         error_message = f"Error publishing"
@@ -130,13 +130,24 @@ def update_dashboard(n):
 def handle_button_clicks(*args):
     ctx = dash.callback_context
     if not ctx.triggered:
+        logging.debug("No button clicks detected")
         return ''
     
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
     if button_id:
-        publish_message()
+        logging.debug(f"Button {button_id} clicked")
+        # Determine topic and message based on button_id
+        topic_map = {
+            'ZeroW1-button': 'reset1',
+            'ZeroW2-button': 'reset2',
+            'ZeroW3-button': 'reset3',
+            'ZeroW4-button': 'reset4'
+        }
+        topic = topic_map.get(button_id, 'default/topic')
+        publish_message(topic)
     
     return ''
+
 
 if __name__ == '__main__':
     app.run_server(debug=True, host='0.0.0.0')
