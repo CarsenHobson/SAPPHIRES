@@ -42,7 +42,7 @@ if __name__ == "__main__":
     client.loop_start()
 
     # Wait for 20 seconds to receive the message
-    time.sleep(20)
+    time.sleep(59)
 
     client.loop_stop()
     client.disconnect()
