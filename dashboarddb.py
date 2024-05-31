@@ -5,6 +5,7 @@ import sqlite3
 from datetime import datetime
 import time
 import paho.mqtt.client as mqtt
+import logging
 
 DATABASE_NAME = "mqtt_data.db"
 MQTT_BROKER = "10.42.0.1"
@@ -14,19 +15,17 @@ MQTT_PASSWORD = "SAPPHIRE"
 
 def on_publish(client, userdata, result):
     pass
-
-def init_mqtt_client():
-    client = mqtt.Client()
-    client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
-    client.on_publish = on_publish
-    client.connect(BROKER_ADDRESS, MQTT_PORT, 60)
-    return client
+   
 
 
 # Publish sensor data or error message
 def publish_message(topic):
     try:
-        client.publish('reboot', topic, qos=1)
+        client = mqtt.Client()
+        client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+        client.on_publish = on_publish
+        client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        client.publish(topic, "reboot", qos=1)
         logging.info(f"Sent reset")
     except Exception as e:
         error_message = f"Error publishing"
@@ -134,16 +133,19 @@ def handle_button_clicks(*args):
         return ''
     
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    if button_id:
-        logging.debug(f"Button {button_id} clicked")
+    n_clicks = ctx.triggered[0]['value']
+    if button_id and n_clicks > 0:
+        logging.debug(f"Button {button_id} clicked {n_clicks} times")
         # Determine topic and message based on button_id
         topic_map = {
-            'ZeroW1-button': 'reset1',
-            'ZeroW2-button': 'reset2',
-            'ZeroW3-button': 'reset3',
-            'ZeroW4-button': 'reset4'
+            'ZeroW1-button': 'Reset1',
+            'ZeroW2-button': 'Reset2',
+            'ZeroW3-button': 'Reset3',
+            'ZeroW4-button': 'Reset4'
         }
+        
         topic = topic_map.get(button_id, 'default/topic')
+        
         publish_message(topic)
     
     return ''
@@ -151,3 +153,5 @@ def handle_button_clicks(*args):
 
 if __name__ == '__main__':
     app.run_server(debug=True, host='0.0.0.0')
+
+
