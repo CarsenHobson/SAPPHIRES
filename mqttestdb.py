@@ -20,6 +20,9 @@ logging.basicConfig(level=logging.INFO,
                     handlers=[logging.FileHandler("app.log"),
                               logging.StreamHandler()])
 
+# MQTT values
+mqtt_values = {"pm2.5": 0, "temperature": 0, "humidity": 0, "Wifi Strength": 0}
+
 # Database setup
 DATABASE_NAME = "mqtt_data.db"
 TABLES = {
@@ -156,4 +159,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
