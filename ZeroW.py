@@ -4,6 +4,7 @@ import Adafruit_BME280
 from sps30 import SPS30
 import subprocess
 import logging
+import os  # For issuing reboot command
 
 # Set up logging
 logging.basicConfig(filename='/path/to/your/logfile.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
@@ -64,6 +65,14 @@ def read_sensors(bme280, sps30):
         sps30.read_measured_values()
         pm25 = sps30.dict_values['pm2p5']
 
+        # Check for null values
+        if pm25 is None:
+            error_message = "SPS30 returned null values. Rebooting..."
+            logging.error(error_message)
+            publish_data(client, MQTT_ERROR_TOPIC, error_message)
+            os.system('sudo reboot')
+            return None
+
         temperature_celsius = bme280.read_temperature()
         temperature_fahrenheit = celsius_to_fahrenheit(temperature_celsius)
         humidity = bme280.read_humidity()
@@ -101,13 +110,11 @@ def main():
     client = init_mqtt_client()
 
     try:
-        while True:
-            sensor_data = read_sensors(bme280, sps30)
-            if isinstance(sensor_data, dict):
-                publish_data(client, MQTT_TOPIC, sensor_data)
-            else:
-                publish_data(client, MQTT_ERROR_TOPIC, sensor_data)
-            time.sleep(60)  # Wait for 1 minute before the next read
+        sensor_data = read_sensors(bme280, sps30)
+        if isinstance(sensor_data, dict):
+            publish_data(client, MQTT_TOPIC, sensor_data)
+        elif sensor_data is not None:
+            publish_data(client, MQTT_ERROR_TOPIC, sensor_data)
     except KeyboardInterrupt:
         sps30.stop_measurement()
         logging.info("Keyboard interrupt detected. SPS30 and BME280 turned off.")
@@ -116,9 +123,8 @@ def main():
         logging.error(error_message)
         publish_data(client, MQTT_ERROR_TOPIC, error_message)
     finally:
-        sps30.stop_measurement()
+        print("Sent message")
 
 if __name__ == "__main__":
     main()
-
 
