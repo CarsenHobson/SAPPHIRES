@@ -118,20 +118,6 @@ def generate_random_key():
     characters = string.ascii_letters + string.digits
     return ''.join(secrets.choice(characters) for _ in range(8))
 
-def retry_connect(client, max_retries=5):
-    """Retry MQTT connection with exponential backoff."""
-    delay = 1
-    for attempt in range(max_retries):
-        try:
-            client.connect(LOCAL_MQTT_BROKER, LOCAL_MQTT_PORT)
-            return
-        except Exception as e:
-            logging.error(f"MQTT connection attempt {attempt + 1} failed: {e}")
-            time.sleep(delay)
-            delay *= 2
-    logging.error("Max retries reached. Exiting.")
-    exit(1)
-
 def main():
     """Main function to run the MQTT client."""
     setup_database()
@@ -141,9 +127,8 @@ def main():
     local_mqtt_client.on_connect = on_connect
     local_mqtt_client.on_message = on_message
 
-    retry_connect(local_mqtt_client)
-
     try:
+        local_mqtt_client.connect(LOCAL_MQTT_BROKER, LOCAL_MQTT_PORT)
         local_mqtt_client.loop_start()
         # Allow time for processing messages
         time.sleep(20)  # You can adjust this sleep duration as needed
