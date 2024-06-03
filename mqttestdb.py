@@ -1,3 +1,4 @@
+
 import time
 import os
 import ast
@@ -19,9 +20,6 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s: %(message)s',
                     handlers=[logging.FileHandler("app.log"),
                               logging.StreamHandler()])
-
-# MQTT values
-mqtt_values = {"pm2.5": 0, "temperature": 0, "humidity": 0, "Wifi Strength": 0}
 
 # Database setup
 DATABASE_NAME = "mqtt_data.db"
@@ -60,7 +58,6 @@ def log_data(data, table_name):
         cursor.execute(f"INSERT INTO {table_name} (timestamp, key, pm25, temperature, humidity, wifi_strength) VALUES (?, ?, ?, ?, ?, ?)", entry_with_timestamp_and_key)
         conn.commit()
         conn.close()
-        logging.info(f"Inserted data into {table_name}: {entry_with_timestamp_and_key}")
     except Exception as e:
         logging.error(f"Error writing to database table {table_name}: {e}")
 
@@ -113,7 +110,6 @@ def log_error(error_message, error_origin):
         cursor.execute("INSERT INTO error_log (timestamp, error_message, error_origin) VALUES (?, ?, ?)", error_entry)
         conn.commit()
         conn.close()
-        logging.info(f"Logged error: {error_entry}")
     except Exception as e:
         logging.error(f"Error writing to error log database: {e}")
 
@@ -159,4 +155,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
