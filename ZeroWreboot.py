@@ -7,7 +7,7 @@ MQTT_BROKER = "10.42.0.1"
 MQTT_PORT = 1883
 MQTT_TOPIC = "Reset"
 
-def on_connect(client, userdata, flags, reason_code):
+def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code.is_failure:
         print(f"Failed to connect: {reason_code}. loop_forever() will retry connection")
     else:
