@@ -32,11 +32,10 @@ def create_tables():
         cursor.execute(f'''
             CREATE TABLE IF NOT EXISTS {table} (
                 column1 INTEGER,  -- Adjust columns and types as per your data
-                column2 TEXT,
+                column2 REAL,
                 column3 REAL,
                 column4 REAL,
-                column5 REAL,
-                column6 REAL
+                column5 REAL
             )
         ''')
     conn.commit()
@@ -47,7 +46,7 @@ def insert_data_to_db(table_name, data):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
-        cursor.execute(f"INSERT INTO {table_name} (column1, column2, column3, column4, column5, column6) VALUES (?, ?, ?, ?, ?, ?)", data)
+        cursor.execute(f"INSERT INTO {table_name} (column1, column2, column3, column4, column5) VALUES (?, ?, ?, ?, ?)", data)
         conn.commit()
     except sqlite3.Error as e:
         print(f"An error occurred: {e}")
@@ -72,7 +71,7 @@ def on_message(client, userdata, msg):
     if table_name:
         try:
             data = ast.literal_eval(payload)  # Convert string back to tuple
-            if isinstance(data, tuple) and len(data) == 6:
+            if isinstance(data, tuple) and len(data) == 5:
                 insert_data_to_db(table_name, data)
                 print(f"Inserted data into {table_name}: {data}")
             else:
@@ -91,5 +90,7 @@ def main():
     client.connect(MQTT_BROKER, MQTT_PORT, 60)
     client.loop_forever()
 
+
 if __name__ == '__main__':
     main()
+
