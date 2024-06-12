@@ -5,13 +5,14 @@ import paho.mqtt.client as mqtt
 DATABASE_NAME = 'mqtt_data.db'
 MQTT_BROKER = "10.42.0.1"
 MQTT_PORT = 1883
-
+MQTT_USERNAME = "SAPPHIRE"
+MQTT_PASSWORD = "SAPPHIRE"
 
 def on_publish(client, userdata, result):
     pass
 
-client = mqtt.Client()
-
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
 client.on_publish = on_publish
 client.connect(MQTT_BROKER, MQTT_PORT, 60)
 
@@ -62,5 +63,7 @@ def reset_mqtt_by_number(table_number):
 if __name__ == '__main__':
     for i in range(1, 5):
         reset_mqtt_by_number(i)
+
+
 
 
