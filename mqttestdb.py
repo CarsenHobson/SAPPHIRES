@@ -1,10 +1,7 @@
-
 import time
 import os
 import ast
 import logging
-import secrets
-import string
 import sqlite3
 import paho.mqtt.client as mqtt
 
@@ -12,8 +9,6 @@ import paho.mqtt.client as mqtt
 LOCAL_MQTT_BROKER = "10.42.0.1"
 LOCAL_MQTT_PORT = 1883
 LOCAL_MQTT_TOPICS = ["ZeroW1", "ZeroW2", "ZeroW3", "ZeroW4"]
-MQTT_USERNAME = "SAPPHIRE"
-MQTT_PASSWORD = "SAPPHIRE"
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO,
@@ -21,13 +16,15 @@ logging.basicConfig(level=logging.INFO,
                     handlers=[logging.FileHandler("app.log"),
                               logging.StreamHandler()])
 
+mqtt_values = {"pm2.5":0, "Temperature (F)":0, "Humidity (%)":0, "Wifi Strength":0}
+
 # Database setup
 DATABASE_NAME = "mqtt_data.db"
 TABLES = {
-    "ZeroW1": "CREATE TABLE IF NOT EXISTS ZeroW1 (timestamp INTEGER, key TEXT, pm25 REAL, temperature REAL, humidity REAL, wifi_strength REAL)",
-    "ZeroW2": "CREATE TABLE IF NOT EXISTS ZeroW2 (timestamp INTEGER, key TEXT, pm25 REAL, temperature REAL, humidity REAL, wifi_strength REAL)",
-    "ZeroW3": "CREATE TABLE IF NOT EXISTS ZeroW3 (timestamp INTEGER, key TEXT, pm25 REAL, temperature REAL, humidity REAL, wifi_strength REAL)",
-    "ZeroW4": "CREATE TABLE IF NOT EXISTS ZeroW4 (timestamp INTEGER, key TEXT, pm25 REAL, temperature REAL, humidity REAL, wifi_strength REAL)"
+    "ZeroW1": "CREATE TABLE IF NOT EXISTS ZeroW1 (timestamp INTEGER, pm25 REAL, temperature REAL, humidity REAL, wifi_strength REAL)",
+    "ZeroW2": "CREATE TABLE IF NOT EXISTS ZeroW2 (timestamp INTEGER, pm25 REAL, temperature REAL, humidity REAL, wifi_strength REAL)",
+    "ZeroW3": "CREATE TABLE IF NOT EXISTS ZeroW3 (timestamp INTEGER, pm25 REAL, temperature REAL, humidity REAL, wifi_strength REAL)",
+    "ZeroW4": "CREATE TABLE IF NOT EXISTS ZeroW4 (timestamp INTEGER, pm25 REAL, temperature REAL, humidity REAL, wifi_strength REAL)"
 }
 ERROR_LOG_TABLE = "CREATE TABLE IF NOT EXISTS error_log (timestamp INTEGER, error_message TEXT, error_origin TEXT)"
 
@@ -44,9 +41,8 @@ def setup_database():
 def log_data(data, table_name):
     """Log data to the specified SQLite table."""
     current_time = int(time.time())
-    entry_with_timestamp_and_key = (
+    entry_with_timestamp = (
         current_time,
-        generate_random_key(),
         data.get("pm2.5", 0),
         data.get("temperature", 0),
         data.get("humidity", 0),
@@ -55,7 +51,7 @@ def log_data(data, table_name):
     try:
         conn = sqlite3.connect(DATABASE_NAME)
         cursor = conn.cursor()
-        cursor.execute(f"INSERT INTO {table_name} (timestamp, key, pm25, temperature, humidity, wifi_strength) VALUES (?, ?, ?, ?, ?, ?)", entry_with_timestamp_and_key)
+        cursor.execute(f"INSERT INTO {table_name} (timestamp, pm25, temperature, humidity, wifi_strength) VALUES (?, ?, ?, ?, ?)", entry_with_timestamp)
         conn.commit()
         conn.close()
     except Exception as e:
@@ -68,7 +64,7 @@ def on_subscribe(client, userdata, mid, reason_code_list, properties):
     else:
         logging.info(f"Broker granted QoS: {reason_code_list[0].value}")
 
-def on_connect(client, userdata, flags, reason_code):
+def on_connect(client, userdata, flags, reason_code, properties):
     """Handle MQTT connection event."""
     logging.info(f"Connected with result code {reason_code}")
     client.subscribe([(topic, 0) for topic in LOCAL_MQTT_TOPICS])
@@ -113,17 +109,11 @@ def log_error(error_message, error_origin):
     except Exception as e:
         logging.error(f"Error writing to error log database: {e}")
 
-def generate_random_key():
-    """Generate a random 8-character alphanumeric key."""
-    characters = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(characters) for _ in range(8))
-
 def main():
     """Main function to run the MQTT client."""
     setup_database()
 
-    local_mqtt_client = mqtt.Client()
-    local_mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+    local_mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     local_mqtt_client.on_connect = on_connect
     local_mqtt_client.on_message = on_message
 
@@ -131,7 +121,7 @@ def main():
         local_mqtt_client.connect(LOCAL_MQTT_BROKER, LOCAL_MQTT_PORT)
         local_mqtt_client.loop_start()
         # Allow time for processing messages
-        time.sleep(20)  # You can adjust this sleep duration as needed
+        time.sleep(50)  # You can adjust this sleep duration as needed
     except KeyboardInterrupt:
         logging.info("Keyboard interrupt detected. Stopping.")
     finally:
@@ -140,3 +130,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
