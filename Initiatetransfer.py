@@ -1,5 +1,6 @@
 import paho.mqtt.client as mqtt
 import os
+import time
 
 MQTT_BROKER = "10.42.0.1"
 MQTT_PORT = 1883
@@ -15,6 +16,7 @@ def on_connect(client, userdata, flags, reason_code, properties):
 
 def on_message(client, userdata, message):
     if message.payload.decode() == "Start":
+        print('Starting')
         os.system('python /home/Mainhub/Transferdata.py')
 
 def on_subscribe(client, userdata, mid, reason_code_list, properties):
