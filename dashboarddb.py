@@ -6,6 +6,7 @@ from datetime import datetime
 import time
 import paho.mqtt.client as mqtt
 import logging
+import subprocess
 
 DATABASE_NAME = "mqtt_data.db"
 MQTT_BROKER = "10.42.0.1"
@@ -15,11 +16,38 @@ def on_publish(client, userdata, result):
     pass
    
 
+def is_device_reachable(ip):
+    try:
+        output = subprocess.check_output(['ping', '-c', '1', ip])
+        if "1 received" in output.decode('utf-8'):
+            return True
+    except subprocess.CalledProcessError:
+        return False
+    return False
+
+def check_device_status():
+    device_ips = {
+        'ZeroW1': '10.42.0.114',
+        'ZeroW2': '10.42.0.107',
+        'ZeroW3': '10.42.0.37',
+        'ZeroW4': '10.42.0.48'
+    }
+
+    device_status = {}
+    for device, ip in device_ips.items():
+        device_status[device] = "Connected" if is_device_reachable(ip) else "Disconnected"
+    
+    return device_status
+
+
+
+
+
 
 # Publish sensor data or error message
 def publish_message(topic):
     try:
-        client = mqtt.Client()
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         client.on_publish = on_publish
         client.connect(MQTT_BROKER, MQTT_PORT, 60)
         client.publish(topic, "reboot", qos=1)
@@ -42,11 +70,10 @@ def get_latest_values():
                 readable_timestamp = datetime.fromtimestamp(result[0]).strftime('%Y-%m-%d %H:%M:%S')
                 latest_values[table] = {
                     "timestamp": readable_timestamp,
-                    "key": result[1],
-                    "pm25": result[2],
-                    "temperature": result[3],
-                    "humidity": result[4],
-                    "wifi_strength": result[5],
+                    "pm25": result[1],
+                    "temperature": result[2],
+                    "humidity": result[3],
+                    "wifi_strength": result[4],
                 }
             else:
                 latest_values[table] = {
@@ -80,23 +107,24 @@ app.layout = html.Div([
     ], className='jumbotron', style={'background-color': '#f8f9fa', 'border-radius': '15px', 'padding': '20px'}),
     dcc.Interval(
         id='interval-component',
-        interval=60*1000,  # in milliseconds (refresh every minute)
+        interval=5*1000,  # in milliseconds (refresh every minute)
         n_intervals=0
     ),
     html.Div(id='dummy-output', style={'display': 'none'})  # hidden div for callback output
 ], className='container-fluid', style={'background-color': '#e9ecef'})
-
 @app.callback(
     Output('live-update-text', 'children'),
     [Input('interval-component', 'n_intervals')]
 )
 def update_dashboard(n):
     data = get_latest_values()
+    device_status = check_device_status()
     if data:
         data_display = []
         for topic, values in data.items():
+            status = device_status.get(topic, "Unknown")
             data_display.append(html.Div([
-                html.H3(topic, className='text-info mb-3'),
+                html.H3(f"{topic} - {status}", className='text-info mb-3'),
                 html.Table([
                     html.Thead(html.Tr([
                         html.Th("Time", style={'background-color': '#343a40', 'color': 'white'}),
@@ -118,6 +146,7 @@ def update_dashboard(n):
         return data_display
     else:
         return html.H3("No recent data available.", className='text-center mt-4')
+
 
 @app.callback(
     Output('dummy-output', 'children'),
@@ -150,5 +179,7 @@ def handle_button_clicks(*args):
 
 if __name__ == '__main__':
     app.run_server(debug=True, host='0.0.0.0')
+
+
 
 
