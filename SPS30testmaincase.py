@@ -4,7 +4,6 @@ import threading
 from sps30 import SPS30
 from dash import Dash, dcc, html
 from dash.dependencies import Input, Output
-import plotly.graph_objs as go
 
 # Function to initialize the SQLite database
 def initialize_db():
@@ -46,10 +45,10 @@ def read_sps30():
 def fetch_latest_data():
     conn = sqlite3.connect('air_quality.db')
     c = conn.cursor()
-    c.execute("SELECT timestamp, pm2_5 FROM air_quality ORDER BY timestamp DESC LIMIT 10")
-    data = c.fetchall()
+    c.execute("SELECT pm2_5 FROM air_quality ORDER BY timestamp DESC LIMIT 1")
+    data = c.fetchone()
     conn.close()
-    return data
+    return data[0] if data else None
 
 # Initialize the SQLite database
 initialize_db()
@@ -61,7 +60,7 @@ threading.Thread(target=read_sps30, daemon=True).start()
 app = Dash(__name__)
 app.layout = html.Div([
     html.H1("PM2.5 Real-Time Dashboard"),
-    dcc.Graph(id='pm25-graph'),
+    html.Div(id='pm25-value', style={'fontSize': '48px', 'fontWeight': 'bold'}),
     dcc.Interval(
         id='interval-component',
         interval=1*1000,  # in milliseconds
@@ -69,26 +68,12 @@ app.layout = html.Div([
     )
 ])
 
-@app.callback(Output('pm25-graph', 'figure'),
+@app.callback(Output('pm25-value', 'children'),
               [Input('interval-component', 'n_intervals')])
-def update_graph_live(n):
-    data = fetch_latest_data()
-    timestamps = [row[0] for row in data]
-    pm2_5_values = [row[1] for row in data]
-
-    figure = {
-        'data': [go.Scatter(
-            x=timestamps,
-            y=pm2_5_values,
-            mode='lines+markers'
-        )],
-        'layout': go.Layout(
-            title='PM2.5 Levels Over Time',
-            xaxis=dict(title='Time'),
-            yaxis=dict(title='PM2.5 (µg/m³)')
-        )
-    }
-    return figure
+def update_value(n):
+    pm2_5_value = fetch_latest_data()
+    return f"PM2.5 Level: {pm2_5_value} µg/m³" if pm2_5_value is not None else "No data available"
 
 if __name__ == "__main__":
     app.run_server(host='0.0.0.0', port=8050)
+
