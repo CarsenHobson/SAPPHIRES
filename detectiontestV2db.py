@@ -141,4 +141,3 @@ if __name__ == "__main__":
             connection.close()
         except sqlite3.Error as e:
             print(f"Error closing the database connection: {str(e)}")
-
