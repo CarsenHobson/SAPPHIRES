@@ -123,3 +123,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         sps.stop_measurement()
         print("\nKeyboard interrupt detected. SPS30 turned off.")
+
