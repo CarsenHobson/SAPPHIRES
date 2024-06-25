@@ -12,6 +12,22 @@ def setup_sps30():
     sps.start_measurement()
     time.sleep(2)
 
+def check_recent_event():
+    try:
+        conn = sqlite3.connect(DATABASE_FILE_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT relaystate FROM detectiontestV2 ORDER BY timestamp DESC LIMIT 60")
+        states = cursor.fetchall()
+        
+        # Check if all the last 60 relaystate values are "ON"
+        if all(state[0] == "ON" for state in states):
+            print("All last 60 relaystate values are 'ON'. Exiting.")
+            exit()  # or you might want to raise an exception or handle this in another way
+    except Exception as e:
+        print(f"Error checking recent event: {str(e)}")
+    finally:
+        conn.close()
+
 # Function to initialize the database
 def initialize_database():
     conn = sqlite3.connect(DATABASE_FILE_PATH)
@@ -103,6 +119,7 @@ if __name__ == "__main__":
     initialize_database()
     try:
         perform_baseline()
+        check_recent_event()
     except KeyboardInterrupt:
         sps.stop_measurement()
         print("\nKeyboard interrupt detected. SPS30 turned off.")
