@@ -3,7 +3,7 @@ import time
 from sps30 import SPS30
 
 # File paths for database
-DATABASE_FILE_PATH = "sensor_data.db"
+DATABASE_FILE_PATH = "detectiontest.db"
 
 sps = SPS30(1)
 
