@@ -1,6 +1,6 @@
 import time
 import sys
-from sps30 import SPS30, SPS30Exception
+from sps30 import SPS30
 import Adafruit_BME280
 from datetime import datetime
 import sqlite3
@@ -20,7 +20,7 @@ except sqlite3.Error as e:
 # Initialize sensors
 try:
     sps = SPS30(1)
-except SPS30Exception as e:
+except Exception as e:
     print(f"Error initializing SPS30 sensor: {str(e)}")
     sys.exit(1)
 
@@ -44,11 +44,6 @@ def fetch_last_20_rows_columns():
             timestamp_values.append(timestamp)
     except sqlite3.Error as e:
         print(f"Error fetching data from database: {str(e)}")
-
-def is_between_5am_and_6am():
-    """Check if the current time is between 5 AM and 6 AM."""
-    current_time = int(datetime.now().strftime('%H%M'))
-    return 500 <= current_time <= 559
 
 def celsius_to_fahrenheit(celsius):
     """Convert Celsius to Fahrenheit."""
@@ -100,7 +95,7 @@ def check_rising_edge():
     try:
         sps.read_measured_values()
         data = sps.dict_values['pm2p5']
-    except SPS30Exception as e:
+    except Exception as e:
         print(f"Error reading SPS30 sensor data: {str(e)}")
         return
 
@@ -123,16 +118,13 @@ def check_rising_edge():
 
 if __name__ == "__main__":
     try:
-        if is_between_5am_and_6am():
-            sys.exit()
-        else:
-            check_rising_edge()
-            connection.commit()
-            connection.close()
+        check_rising_edge()
+        connection.commit()
+        connection.close()
     except KeyboardInterrupt:
         try:
             sps.stop_measurement()
-        except SPS30Exception as e:
+        except Exception as e:
             print(f"Error stopping SPS30 measurement: {str(e)}")
         print("\nKeyboard interrupt detected. SPS30 turned off.")
     except Exception as e:
