@@ -36,7 +36,6 @@ def log_data(pm2_5):
 # Function to read data from the SPS30 sensor continuously
 def read_sps30():
     sensor = SPS30(1)  # 1 indicates the I2C bus number
-    sensor.start_measurement()
     time.sleep(2)  # Wait for the first measurement to be ready
 
     try:
