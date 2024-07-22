@@ -58,22 +58,8 @@ app.layout = html.Div([
         html.Hr(),
         # Here you can add the initial dashboard content
     ]),
-    html.Div(id='dummy-output', style={'display': 'none'}),
-    # JavaScript to trigger the on-screen keyboard
-    html.Script("""
-        document.addEventListener('DOMContentLoaded', function() {
-            var commentsTextArea = document.querySelector('#comments textarea');
-            commentsTextArea.addEventListener('focus', function() {
-                fetch('/open_keyboard');
-            });
-        });
-    """)
+    dcc.Input(id='hidden-keyboard-trigger', style={'display': 'none'})
 ])
-
-@app.server.route('/open_keyboard')
-def open_keyboard():
-    os.system('wvkbd-mobintl &')
-    return '', 204
 
 @app.callback(
     Output('modal', 'is_open'),
@@ -81,18 +67,20 @@ def open_keyboard():
     Output('error-message', 'children'),
     Output('satisfaction', 'value'),
     Output('comments', 'value'),
+    Output('hidden-keyboard-trigger', 'value'),
     Input('interval-component', 'n_intervals'),
     Input('submit-survey', 'n_clicks'),
+    Input('comments', 'n_clicks'),
     State('satisfaction', 'value'),
     State('comments', 'value'),
     State('show-survey', 'data'),
     State('modal', 'is_open'),
 )
-def toggle_modal(n_intervals, n_clicks, satisfaction, comments, show_survey, is_open):
+def toggle_modal(n_intervals, n_clicks, comments_n_clicks, satisfaction, comments, show_survey, is_open):
     trigger = ctx.triggered_id
     
     if trigger == 'interval-component':
-        return True, False, '', None, ''  # Show survey, reset flag and form fields, clear error message
+        return True, False, '', None, '', ''  # Show survey, reset flag and form fields, clear error message, clear hidden input
 
     if trigger == 'submit-survey':
         if satisfaction:
@@ -103,11 +91,15 @@ def toggle_modal(n_intervals, n_clicks, satisfaction, comments, show_survey, is_
                 'Comments': [comments]
             })
             new_data.to_csv(csv_file_path, mode='a', header=False, index=False)
-            return False, True, '', None, ''  # Close survey, set flag, clear error message and form fields
+            return False, True, '', None, '', ''  # Close survey, set flag, clear error message and form fields, clear hidden input
         else:
-            return True, False, 'Please answer all required questions.', satisfaction, comments  # Show error message
+            return True, False, 'Please answer all required questions.', satisfaction, comments, ''  # Show error message, clear hidden input
 
-    return is_open, show_survey, '', satisfaction, comments
+    if trigger == 'comments':
+        os.system('wvkbd-mobintl &')
+        return is_open, show_survey, '', satisfaction, comments, 'triggered'  # Set hidden input value to trigger keyboard
+
+    return is_open, show_survey, '', satisfaction, comments, ''  # Clear hidden input
 
 @app.callback(
     Output('dashboard-content', 'children'),
