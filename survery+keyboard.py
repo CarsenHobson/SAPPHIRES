@@ -17,7 +17,7 @@ if not os.path.isfile(csv_file_path):
 
 # Layout of the app
 app.layout = html.Div([
-    dcc.Interval(id='interval-component', interval=600*1000, n_intervals=0),  # 10 minutes interval
+    dcc.Interval(id='interval-component', interval=60*1000, n_intervals=0),  # 10 minutes interval
     dcc.Store(id='show-survey', data=True),
     dcc.Store(id='reset-form', data=False),
     dbc.Modal(
@@ -57,7 +57,8 @@ app.layout = html.Div([
         html.H3('Welcome to the Dashboard'),
         html.Hr(),
         # Here you can add the initial dashboard content
-    ])
+    ]),
+    html.Div(id='dummy-output', style={'display': 'none'})
 ])
 
 @app.callback(
