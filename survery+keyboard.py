@@ -96,7 +96,7 @@ def toggle_modal(n_intervals, n_clicks, comments_n_clicks, satisfaction, comment
             return True, False, 'Please answer all required questions.', satisfaction, comments, ''  # Show error message, clear hidden input
 
     if trigger == 'comments':
-        os.system('wvkbd-mobintl &')
+        os.system('wvkbd-mobintl')
         return is_open, show_survey, '', satisfaction, comments, 'triggered'  # Set hidden input value to trigger keyboard
 
     return is_open, show_survey, '', satisfaction, comments, ''  # Clear hidden input
