@@ -17,7 +17,7 @@ if not os.path.isfile(csv_file_path):
 
 # Layout of the app
 app.layout = html.Div([
-    dcc.Interval(id='interval-component', interval=60*1000, n_intervals=0),  # 10 minutes interval
+    dcc.Interval(id='interval-component', interval=600*1000, n_intervals=0),  # 10 minutes interval
     dcc.Store(id='show-survey', data=True),
     dcc.Store(id='reset-form', data=False),
     dbc.Modal(
@@ -58,8 +58,22 @@ app.layout = html.Div([
         html.Hr(),
         # Here you can add the initial dashboard content
     ]),
-    html.Div(id='dummy-output', style={'display': 'none'})
+    html.Div(id='dummy-output', style={'display': 'none'}),
+    # JavaScript to trigger the on-screen keyboard
+    html.Script("""
+        document.addEventListener('DOMContentLoaded', function() {
+            var commentsTextArea = document.querySelector('#comments textarea');
+            commentsTextArea.addEventListener('focus', function() {
+                fetch('/open_keyboard');
+            });
+        });
+    """)
 ])
+
+@app.server.route('/open_keyboard')
+def open_keyboard():
+    os.system('wvkbd-mobintl &')
+    return '', 204
 
 @app.callback(
     Output('modal', 'is_open'),
@@ -117,15 +131,6 @@ def update_dashboard(n_clicks, satisfaction, comments):
             html.Hr(),
             # Here you can add the initial dashboard content
         ])
-
-@app.callback(
-    Output('dummy-output', 'children'),
-    Input('comments', 'n_clicks'),
-)
-def open_keyboard(n_clicks):
-    if n_clicks:
-        os.system('matchbox-keyboard &')
-    return ""
 
 if __name__ == '__main__':
     app.run_server(debug=True)
