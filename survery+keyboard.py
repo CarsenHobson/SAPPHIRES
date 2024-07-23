@@ -6,6 +6,7 @@ import os
 
 # Initialize the Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+server = app.server
 
 # Define the CSV file path
 csv_file_path = 'survey_results.csv'
@@ -17,7 +18,7 @@ if not os.path.isfile(csv_file_path):
 
 # Layout of the app
 app.layout = html.Div([
-    dcc.Interval(id='interval-component', interval=60*1000, n_intervals=0),  # 10 minutes interval
+    dcc.Interval(id='interval-component', interval=600*1000, n_intervals=0),  # 10 minutes interval
     dcc.Store(id='show-survey', data=True),
     dcc.Store(id='reset-form', data=False),
     dbc.Modal(
@@ -39,7 +40,7 @@ app.layout = html.Div([
                     ),
                     html.Br(),
                     html.Label("Additional Comments:"),
-                    dcc.Textarea(id='comments', style={'width': '100%', 'height': '150px'}),
+                    dcc.Textarea(id='comments', style={'width': '100%', 'height': '150px', 'resize': 'none'}),
                     html.Div(id='error-message', style={'color': 'red', 'marginTop': '10px'})
                 ], style={'fontSize': '18px'}),
             ]),
@@ -58,7 +59,6 @@ app.layout = html.Div([
         html.Hr(),
         # Here you can add the initial dashboard content
     ]),
-    dcc.Input(id='hidden-keyboard-trigger', style={'display': 'none'})
 ])
 
 @app.callback(
@@ -67,20 +67,19 @@ app.layout = html.Div([
     Output('error-message', 'children'),
     Output('satisfaction', 'value'),
     Output('comments', 'value'),
-    Output('hidden-keyboard-trigger', 'value'),
     Input('interval-component', 'n_intervals'),
     Input('submit-survey', 'n_clicks'),
-    Input('comments', 'n_clicks'),
     State('satisfaction', 'value'),
     State('comments', 'value'),
     State('show-survey', 'data'),
     State('modal', 'is_open'),
 )
-def toggle_modal(n_intervals, n_clicks, comments_n_clicks, satisfaction, comments, show_survey, is_open):
+def toggle_modal(n_intervals, n_clicks, satisfaction, comments, show_survey, is_open):
     trigger = ctx.triggered_id
     
     if trigger == 'interval-component':
-        return True, False, '', None, '', ''  # Show survey, reset flag and form fields, clear error message, clear hidden input
+        os.system('wvkbd-mobintl &')  # Open keyboard when survey is shown
+        return True, False, '', None, ''  # Show survey, reset flag and form fields, clear error message
 
     if trigger == 'submit-survey':
         if satisfaction:
@@ -91,15 +90,11 @@ def toggle_modal(n_intervals, n_clicks, comments_n_clicks, satisfaction, comment
                 'Comments': [comments]
             })
             new_data.to_csv(csv_file_path, mode='a', header=False, index=False)
-            return False, True, '', None, '', ''  # Close survey, set flag, clear error message and form fields, clear hidden input
+            return False, True, '', None, ''  # Close survey, set flag, clear error message and form fields
         else:
-            return True, False, 'Please answer all required questions.', satisfaction, comments, ''  # Show error message, clear hidden input
+            return True, False, 'Please answer all required questions.', satisfaction, comments  # Show error message
 
-    if trigger == 'comments':
-        os.system('wvkbd-mobintl')
-        return is_open, show_survey, '', satisfaction, comments, 'triggered'  # Set hidden input value to trigger keyboard
-
-    return is_open, show_survey, '', satisfaction, comments, ''  # Clear hidden input
+    return is_open, show_survey, '', satisfaction, comments
 
 @app.callback(
     Output('dashboard-content', 'children'),
