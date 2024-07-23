@@ -1,5 +1,5 @@
 import dash
-from dash import dcc, html, Input, Output, State, ctx
+from dash import dcc, html, Input, Output, State, ALL, ctx
 import dash_bootstrap_components as dbc
 import pandas as pd
 import os
@@ -15,6 +15,23 @@ csv_file_path = 'survey_results.csv'
 if not os.path.isfile(csv_file_path):
     df = pd.DataFrame(columns=['Timestamp', 'Satisfaction', 'Comments'])
     df.to_csv(csv_file_path, index=False)
+
+# Function to create keyboard layout
+def create_keyboard():
+    rows = [
+        list("1234567890"),
+        list("QWERTYUIOP"),
+        list("ASDFGHJKL"),
+        list("ZXCVBNM")
+    ]
+    keyboard_layout = []
+    for row in rows:
+        keyboard_layout.append(html.Div([dbc.Button(char, id={'type': 'key', 'index': char}, n_clicks=0) for char in row], className="mb-1"))
+    keyboard_layout.append(html.Div([
+        dbc.Button("Space", id={'type': 'key', 'index': ' '}, n_clicks=0, style={'width': '60px'}),
+        dbc.Button("Backspace", id={'type': 'key', 'index': 'Backspace'}, n_clicks=0)
+    ]))
+    return keyboard_layout
 
 # Layout of the app
 app.layout = html.Div([
@@ -41,7 +58,8 @@ app.layout = html.Div([
                     html.Br(),
                     html.Label("Additional Comments:"),
                     dcc.Textarea(id='comments', style={'width': '100%', 'height': '150px', 'resize': 'none'}),
-                    html.Div(id='error-message', style={'color': 'red', 'marginTop': '10px'})
+                    html.Div(id='error-message', style={'color': 'red', 'marginTop': '10px'}),
+                    html.Div(create_keyboard(), id='keyboard')
                 ], style={'fontSize': '18px'}),
             ]),
             dbc.ModalFooter(
@@ -58,8 +76,45 @@ app.layout = html.Div([
         html.H3('Welcome to the Dashboard'),
         html.Hr(),
         # Here you can add the initial dashboard content
+        dcc.Graph(
+            id='example-graph',
+            figure={
+                'data': [
+                    {'x': [1, 2, 3, 4], 'y': [4, 1, 3, 5], 'type': 'bar', 'name': 'Example Data'},
+                ],
+                'layout': {
+                    'title': 'Example Graph'
+                }
+            }
+        ),
+        dcc.Dropdown(
+            id='example-dropdown',
+            options=[
+                {'label': 'Option 1', 'value': '1'},
+                {'label': 'Option 2', 'value': '2'},
+                {'label': 'Option 3', 'value': '3'},
+            ],
+            value='1'
+        ),
+        dcc.Input(id='example-input', value='Type something here...', type='text'),
+        html.Div(id='example-output')
     ]),
 ])
+
+@app.callback(
+    Output('comments', 'value'),
+    [Input({'type': 'key', 'index': ALL}, 'n_clicks')],
+    State('comments', 'value')
+)
+def update_textarea(n_clicks, current_text):
+    triggered = ctx.triggered_id
+    if triggered and triggered['type'] == 'key':
+        key = triggered['index']
+        if key == 'Backspace':
+            current_text = current_text[:-1]
+        else:
+            current_text += key
+    return current_text
 
 @app.callback(
     Output('modal', 'is_open'),
@@ -78,7 +133,6 @@ def toggle_modal(n_intervals, n_clicks, satisfaction, comments, show_survey, is_
     trigger = ctx.triggered_id
     
     if trigger == 'interval-component':
-        os.system('wvkbd-mobintl &')  # Open keyboard when survey is shown
         return True, False, '', None, ''  # Show survey, reset flag and form fields, clear error message
 
     if trigger == 'submit-survey':
@@ -111,13 +165,58 @@ def update_dashboard(n_clicks, satisfaction, comments):
             html.H3('Welcome to the Dashboard'),
             html.Hr(),
             # Here you can add the initial dashboard content
+            dcc.Graph(
+                id='example-graph',
+                figure={
+                    'data': [
+                        {'x': [1, 2, 3, 4], 'y': [4, 1, 3, 5], 'type': 'bar', 'name': 'Example Data'},
+                    ],
+                    'layout': {
+                        'title': 'Example Graph'
+                    }
+                }
+            ),
+            dcc.Dropdown(
+                id='example-dropdown',
+                options=[
+                    {'label': 'Option 1', 'value': '1'},
+                    {'label': 'Option 2', 'value': '2'},
+                    {'label': 'Option 3', 'value': '3'},
+                ],
+                value='1'
+            ),
+            dcc.Input(id='example-input', value='Type something here...', type='text'),
+            html.Div(id='example-output')
         ])
     else:
         return html.Div([
             html.H3('Welcome to the Dashboard'),
             html.Hr(),
             # Here you can add the initial dashboard content
+            dcc.Graph(
+                id='example-graph',
+                figure={
+                    'data': [
+                        {'x': [1, 2, 3, 4], 'y': [4, 1, 3, 5], 'type': 'bar', 'name': 'Example Data'},
+                    ],
+                    'layout': {
+                        'title': 'Example Graph'
+                    }
+                }
+            ),
+            dcc.Dropdown(
+                id='example-dropdown',
+                options=[
+                    {'label': 'Option 1', 'value': '1'},
+                    {'label': 'Option 2', 'value': '2'},
+                    {'label': 'Option 3', 'value': '3'},
+                ],
+                value='1'
+            ),
+            dcc.Input(id='example-input', value='Type something here...', type='text'),
+            html.Div(id='example-output')
         ])
 
 if __name__ == '__main__':
     app.run_server(debug=True)
+
