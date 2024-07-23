@@ -26,9 +26,9 @@ def create_keyboard(shift=False):
         list("ASDFGHJKL" if shift else "asdfghjkl"),
         list("ZXCVBNM" if shift else "zxcvbnm")
     ]
-    button_style = {'margin': '8px', 'width': '80px', 'height': '80px', 'fontSize': '32px'}
-    space_button_style = {'margin': '8px', 'width': '600px', 'height': '80px', 'fontSize': '32px'}
-    shift_back_style = {'margin': '8px', 'width': '100px', 'height': '80px', 'fontSize': '32px'}
+    button_style = {'margin': '8px', 'width': '60px', 'height': '50px', 'fontSize': '32px'}
+    space_button_style = {'margin': '8px', 'width': '400px', 'height': '50px', 'fontSize': '32px'}
+    shift_back_style = {'margin': '8px', 'width': '100px', 'height': '50px', 'fontSize': '32px'}
     keyboard_layout = []
     for row in rows:
         keyboard_layout.append(
