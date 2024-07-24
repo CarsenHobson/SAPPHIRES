@@ -2,8 +2,8 @@ import dash
 from dash import dcc, html, Input, Output, State
 import logging
 import RPi.GPIO as GPIO
-import time
 import threading
+import time
 
 # Configure logging
 logging.basicConfig(filename='screen_log.txt', level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -13,6 +13,9 @@ PIR_PIN = 17  # Replace with your GPIO pin connected to the PIR sensor
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(PIR_PIN, GPIO.IN)
 
+# Global variable to store black screen state
+black_screen_active = False
+
 # Initialize the Dash app
 app = dash.Dash(__name__)
 
@@ -20,15 +23,13 @@ app = dash.Dash(__name__)
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
     dcc.Store(id='current-screen', storage_type='session'),
-    dcc.Store(id='black-screen', data=False, storage_type='session'),
     html.Div(id='page-content'),
     html.Div([
         html.Button('<', id='prev-button', n_clicks=0, style={'font-size': '24px', 'height': '50px', 'width': '50px'}),
         html.Button('>', id='next-button', n_clicks=0, style={'font-size': '24px', 'height': '50px', 'width': '50px'})
     ], style={'position': 'fixed', 'top': '50%', 'transform': 'translateY(-50%)', 'width': '100%', 'display': 'flex',
               'justify-content': 'space-between', 'padding': '0 10px'}),
-    dcc.Interval(id='interval-component', interval=1 * 1000, n_intervals=0),  # check every second
-    html.Div(id='black-screen-div', style={'display': 'none'})
+    dcc.Interval(id='interval-component', interval=1 * 1000, n_intervals=0)  # check every second
 ])
 
 # Define the layout for each page
@@ -55,10 +56,11 @@ black_screen_layout = html.Div(style={'height': '100vh', 'backgroundColor': 'bla
     [Output('page-content', 'children'),
      Output('current-screen', 'data')],
     [Input('url', 'pathname'),
-     Input('black-screen', 'data')],
+     Input('interval-component', 'n_intervals')],
     [State('current-screen', 'data')]
 )
-def display_page(pathname, black_screen_active, current_screen):
+def display_page(pathname, n_intervals, current_screen):
+    global black_screen_active
     if black_screen_active:
         return black_screen_layout, current_screen
     if pathname == '/page-1':
@@ -102,40 +104,26 @@ def update_url(prev_clicks, next_clicks, current_path, current_screen):
 
 # Combined callback to handle inactivity and user interaction reset
 @app.callback(
-    [Output('interval-component', 'n_intervals'),
-     Output('black-screen', 'data')],
-    [Input('interval-component', 'n_intervals'),
-     Input('page-content', 'n_clicks'),
+    Output('interval-component', 'n_intervals'),
+    [Input('page-content', 'n_clicks'),
      Input('prev-button', 'n_clicks'),
-     Input('next-button', 'n_clicks')],
-    [State('black-screen', 'data')]
+     Input('next-button', 'n_clicks')]
 )
-def manage_black_screen(n_intervals, page_clicks, prev_clicks, next_clicks, black_screen_active):
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return dash.no_update, dash.no_update
-
-    triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
-
-    if triggered_id == 'interval-component':
-        if not black_screen_active and n_intervals >= 300:  # 5 minutes = 300 seconds
-            logging.info('Screen went black due to inactivity')
-            return dash.no_update, True
-        return dash.no_update, black_screen_active
-    else:
-        if black_screen_active:
-            logging.info('Screen woke up due to user interaction')
-        return 0, False
+def reset_inactivity(page_clicks, prev_clicks, next_clicks):
+    global black_screen_active
+    black_screen_active = False
+    logging.info('Screen woke up due to user interaction')
+    return 0
 
 
 # Function to detect PIR sensor input
 def pir_detect():
+    global black_screen_active
     while True:
         if GPIO.input(PIR_PIN):
-            logging.info('PIR sensor detected movement')
-            with app.server.app_context():
-                dash.callback_context._callback_list[2]['state'] = (0, False)
-                dash.callback_context._callback_list[2]['triggered'][0] = 'interval-component.n_intervals'
+            if black_screen_active:
+                black_screen_active = False
+                logging.info('PIR sensor detected movement')
         time.sleep(0.1)
 
 
