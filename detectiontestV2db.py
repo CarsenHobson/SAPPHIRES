@@ -56,33 +56,34 @@ def read_baseline_value():
         rows = cursor.fetchall()
         if len(rows) > 1:
             baseline_values = [row[0] for row in rows]
+            average_baseline_values = sum(baseline_values)/len(baseline_values)
             latest_baseline = baseline_values[0]
             valid_baseline_values = [value for value in baseline_values[1:] if value <= 1.5 * baseline_values[1]]
             
-            if latest_baseline > 1.5 * baseline_values[1]:
+            if latest_baseline > 1.5 * average_baseline_values:
                 if valid_baseline_values:
                     previous_baseline = valid_baseline_values[0]
                 else:
                     previous_baseline = baseline_values[1]
                 print("Latest baseline value is too high, using the previous valid baseline value.")
-                return previous_baseline
+                return 7.5
             else:
                 return latest_baseline
         elif len(rows) == 1:
             return rows[0][0]
         else:
-            return 10  # Default to 10 if no baseline values are found
+            return 7.5  # Default to 10 if no baseline values are found
     except sqlite3.Error as e:
         print(f"Database error: {str(e)}")
-        return 10  # Default to 10 in case of a database error
+        return 7.5  # Default to 10 in case of a database error
 
 def check_rising_edge():
     """Check for a rising edge in PM2.5 levels and update the database."""
     baseline_pm25 = read_baseline_value()
 
     # Ensure baseline is at least 10
-    if baseline_pm25 < 10:
-        baseline_pm25 = 10
+    if baseline_pm25 < 7.5:
+        baseline_pm25 = 7.5
 
     try:
         temperature_celsius = bme280.read_temperature()
