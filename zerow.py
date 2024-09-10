@@ -71,7 +71,7 @@ try:
         
     client.publish(mqtt_topic, str(sensor_data), qos=1)
     print(sensor_data)
-    logging.info(f"Published data: {sensor_data}")
+  
 
 except KeyboardInterrupt:
     sps.stop_measurement()
