@@ -8,7 +8,7 @@ import subprocess
 mqtt_username = "SAPPHIRE"
 mqtt_password = "SAPPHIRE"
 broker_address = "10.42.0.1"
-mqtt_topic = "ZeroW1"
+mqtt_topic = "ZeroW2"
 
 
 logging.basicConfig(filename='/home/zerow1/logfile.log',level=logging.DEBUG, format='%(asctime)s %(message)')
