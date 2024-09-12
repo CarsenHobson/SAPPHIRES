@@ -12,7 +12,7 @@ broker_address = "10.42.0.1"
 mqtt_topic = "ZeroW2"
 
 
-logging.basicConfig(filename='/home/zerow1/logfile.log',level=logging.DEBUG, format='%(asctime)s %(message)')
+logging.basicConfig(filename='/home/zerow2/logfile.log',level=logging.DEBUG, format='%(asctime)s %(message)')
 
 def on_publish(client, userdata, result):
     pass
