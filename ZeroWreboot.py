@@ -5,7 +5,7 @@ import time
 # MQTT settings
 MQTT_BROKER = "10.42.0.1"
 MQTT_PORT = 1883
-MQTT_TOPIC = "Reset"
+MQTT_TOPIC = "Reset2"
 
 def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code.is_failure:
