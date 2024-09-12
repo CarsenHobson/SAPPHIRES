@@ -54,9 +54,9 @@ try:
 
     pm25 = sps30.dict_values['pm2p5']
 
-    temperature_celsius = bme280.temperature()
+    temperature_celsius = bme280.temperature
     temperature = celsius_to_fahrenheit(temperature_celsius)
-    humidity = bme280.humidity()
+    humidity = bme280.humidity
 
     sensor_data = {
         "PM2.5": pm25,
