@@ -1,6 +1,7 @@
 import time
 import paho.mqtt.client as mqtt
-import Adafruit_BME280
+import board
+from adafruit_bme280 import basic as adafruit_bme280
 from sps30 import SPS30
 import logging
 import subprocess
@@ -22,7 +23,8 @@ client.on_publish = on_publish
 client.connect(broker_address, 1883, 60)
 
 
-bme280 = Adafruit_BME280.BME280(address=0x77)
+i2c = board.I2C()  # uses board.SCL and board.SDA
+bme280 = adafruit_bme280.Adafruit_BME280_I2C(i2c)
 
 sps30 = SPS30(port=1)
 
@@ -52,9 +54,9 @@ try:
 
     pm25 = sps30.dict_values['pm2p5']
 
-    temperature_celsius = bme280.read_temperature()
+    temperature_celsius = bme280.temperature()
     temperature = celsius_to_fahrenheit(temperature_celsius)
-    humidity = bme280.read_humidity()
+    humidity = bme280.humidity()
 
     sensor_data = {
         "PM2.5": pm25,
