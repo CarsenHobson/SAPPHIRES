@@ -11,6 +11,22 @@ topic = "ZeroW1"
 db_file = 'pm25_data.db'
 
 
+# Define the restricted time range (5 AM to 6 AM)
+restricted_start = datetime.strptime("05:00", "%H:%M").time()
+restricted_end = datetime.strptime("06:00", "%H:%M").time()
+
+
+def is_between_5am_and_6am():
+    # Get the current time in HHMM format
+    current_time = int(datetime.now().strftime('%H%M'))
+
+    # Check if it's between 05:00 and 05:59
+    if 500 <= current_time <= 559:
+        exit()  # It's between 5 AM and 6 AM
+    else:
+        pass  # It's not between 5 AM and 6 AM
+
+
 def init_db():
     # Connect to the SQLite database (or create it if it doesn't exist)
     conn = sqlite3.connect(db_file)
@@ -22,8 +38,6 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT NOT NULL,
             pm25_value REAL NOT NULL
-            baseline REAL NOT NULL
-            filter_state TEXT NOT NULL
         )
     ''')
 
@@ -72,6 +86,8 @@ def on_subscribe(client, userdata, mid, granted_qos):
     print(f"Subscribed to topic with QoS {granted_qos[0]}")
 
 
+is_between_5am_and_6am()
+
 # Setup the MQTT client
 client = mqtt.Client()
 
@@ -91,12 +107,9 @@ init_db()
 # Start the MQTT loop (use loop_forever to ensure it runs continuously)
 client.loop_start()
 
-# Keep the script running indefinitely
-try:
-    while True:
-        time.sleep(1)  # Sleep to reduce CPU usage
-except KeyboardInterrupt:
-    print("Exiting...")
-finally:
-    client.loop_stop()  # Stop the loop gracefully
-    client.disconnect()  # Disconnect from the broker
+time.sleep(59)
+
+client.loop_stop()
+
+
+
