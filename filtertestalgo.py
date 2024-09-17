@@ -15,7 +15,6 @@ except sqlite3.Error as e:
     print(f"Error connecting to database: {str(e)}")
     sys.exit(1)
 
-
 # Data storage
 pm25_values = []
 timestamp_values = []
@@ -23,12 +22,18 @@ timestamp_values = []
 
 def fetch_last_20_rows_columns():
     """Fetch the last 20 rows of PM2.5 and timestamp from the database."""
+    global pm25_values, timestamp_values
+    pm25_values.clear()
+    timestamp_values.clear()
+
     try:
         cursor.execute("SELECT pm25_value, timestamp FROM pm25_data ORDER BY rowid DESC LIMIT 20")
         rows = cursor.fetchall()
         for pm25_value, timestamp in rows:
             pm25_values.append(pm25_value)
-            timestamp_values.append(timestamp)
+            # Assuming the timestamp is a string in the format 'YYYY-MM-DD HH:MM:SS'
+            timestamp_unix = time.mktime(datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").timetuple())
+            timestamp_values.append(timestamp_unix)
     except sqlite3.Error as e:
         print(f"Error fetching data from database: {str(e)}")
 
@@ -61,17 +66,17 @@ def read_baseline_value():
         elif len(rows) == 1:
             return rows[0][0]
         else:
-            return 7.5  # Default to 10 if no baseline values are found
+            return 7.5  # Default if no baseline values are found
     except sqlite3.Error as e:
         print(f"Database error: {str(e)}")
-        return 7.5  # Default to 10 in case of a database error
+        return 7.5  # Default in case of a database error
 
 
 def check_rising_edge():
     """Check for a rising edge in PM2.5 levels and update the database."""
     baseline_pm25 = read_baseline_value()
 
-    # Ensure baseline is at least 10
+    # Ensure baseline is at least 7.5
     if baseline_pm25 < 7.5:
         baseline_pm25 = 7.5
 
@@ -83,13 +88,12 @@ def check_rising_edge():
         threshold = 1.25
         relay_state = 'ON' if all(data_point > threshold * baseline_pm25 for data_point in pm25_values) else 'OFF'
     else:
-        print(f"Not enough data points ({len(pm25_values)}) out of {WINDOW_SIZE}). Skipping rising edge calculation.")
+        print(f"Not enough data points ({len(pm25_values)} out of {WINDOW_SIZE}). Skipping rising edge calculation.")
         relay_state = 'OFF'
 
     try:
-        cursor.execute('''INSERT INTO pm25_data  (filter_state) 
-                          VALUES (?)''',
-                       (relay_state))
+        cursor.execute('''INSERT INTO pm25_data (filter_state) 
+                          VALUES (?)''', (relay_state,))
     except sqlite3.Error as e:
         print(f"Error inserting data into database: {str(e)}")
 
@@ -98,10 +102,9 @@ if __name__ == "__main__":
     try:
         check_rising_edge()
         connection.commit()
-        connection.close()
-
     except Exception as e:
         print(f"An unexpected error occurred: {str(e)}")
+    finally:
         try:
             connection.close()
         except sqlite3.Error as e:
