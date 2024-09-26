@@ -22,8 +22,6 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT NOT NULL,
             pm25_value REAL NOT NULL
-            filter_state TEXT NOT NULL
-            baseline REAL NOT NULL
         )
     ''')
 
