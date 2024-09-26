@@ -4,7 +4,7 @@ from sps30 import SPS30
 
 sps = SPS30(1)
 
-DATABASE_PATH = "case_data.db"
+DATABASE_PATH = "indoor.db"
 
 # Function to initialize the SQLite database
 def initialize_database():
