@@ -1,27 +1,37 @@
 import sqlite3
-import sys  # Import sys to allow the script to exit
-import datetime  # For timestamp generation
+import sys
+import datetime  # For timestamp calculations
 
 # Database file path
-db_file = 'your_database_file.db'  # Replace with your actual database file path
+db_file = 'pm25_data.db'  # Replace with your actual database file path
 
-def check_filter_state_on():
+def check_filter_state_on_last_60_minutes():
+    # Get the current time and calculate the time 60 minutes ago
+    current_time = datetime.datetime.now()
+    time_60_minutes_ago = current_time - datetime.timedelta(minutes=60)
+
+    # Format the timestamps to match the format in the database (assuming they are stored as TEXT)
+    time_60_minutes_ago_str = time_60_minutes_ago.strftime('%Y-%m-%d %H:%M:%S')
+
     # Connect to the SQLite database
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
-    # Check if any 'filter_state' value is set to 'ON'
+    # Check if any 'filter_state' value is set to 'ON' within the last 60 minutes in the 'filter_state' table
     cursor.execute('''
-        SELECT 1 FROM pm25_data WHERE filter_state = "ON" LIMIT 1
-    ''')
+        SELECT 1 FROM filter_state 
+        WHERE filter_state = "ON" 
+        AND timestamp >= ?
+        LIMIT 1
+    ''', (time_60_minutes_ago_str,))
     result = cursor.fetchone()
 
     # Close the connection
     conn.close()
 
-    # If result is not None, that means at least one entry with filter_state "ON" exists
+    # If result is not None, that means at least one entry with filter_state "ON" exists in the last 60 minutes
     if result:
-        print("Filter state is ON. Exiting the script.")
+        print("Filter state was ON in the last 60 minutes. Exiting the script.")
         sys.exit()
 
 def get_last_60_pm25_values():
@@ -83,8 +93,8 @@ def insert_baseline_value(average_value):
     conn.close()
 
 def main():
-    # Step 1: Check if any filter_state is "ON", and exit if true
-    check_filter_state_on()
+    # Step 1: Check if any filter_state is "ON" in the last 60 minutes, and exit if true
+    check_filter_state_on_last_60_minutes()
 
     # Step 2: Get the last 60 PM2.5 values
     pm25_values = get_last_60_pm25_values()
@@ -100,3 +110,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
