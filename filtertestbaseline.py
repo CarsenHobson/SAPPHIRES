@@ -1,5 +1,6 @@
 import sqlite3
 import sys  # Import sys to allow the script to exit
+import datetime  # For timestamp generation
 
 # Database file path
 db_file = 'your_database_file.db'  # Replace with your actual database file path
@@ -47,16 +48,35 @@ def calculate_average(values):
         return 0.0
     return sum(values) / len(values)
 
-def update_baseline_with_average(average_value):
+def create_baseline_table():
     # Connect to the SQLite database
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
-    # Update the baseline column with the calculated average for all entries
+    # Create the baseline table if it doesn't already exist
     cursor.execute('''
-        UPDATE pm25_data
-        SET baseline = ?
-    ''', (average_value,))
+        CREATE TABLE IF NOT EXISTS baseline (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            baseline_value REAL
+        )
+    ''')
+
+    # Commit the changes and close the connection
+    conn.commit()
+    conn.close()
+
+def insert_baseline_value(average_value):
+    # Connect to the SQLite database
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
+
+    # Insert the average value into the baseline table with the current timestamp
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    cursor.execute('''
+        INSERT INTO baseline (timestamp, baseline_value)
+        VALUES (?, ?)
+    ''', (timestamp, average_value))
 
     # Commit the changes and close the connection
     conn.commit()
@@ -72,8 +92,11 @@ def main():
     # Step 3: Calculate the average of those values
     average_pm25 = calculate_average(pm25_values)
 
-    # Step 4: Update the baseline with the calculated average
-    update_baseline_with_average(average_pm25)
+    # Step 4: Create the baseline table if it doesn't exist
+    create_baseline_table()
+
+    # Step 5: Insert the calculated average into the baseline table
+    insert_baseline_value(average_pm25)
 
 if __name__ == '__main__':
     main()
