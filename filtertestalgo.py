@@ -15,10 +15,21 @@ except sqlite3.Error as e:
     print(f"Error connecting to database: {str(e)}")
     sys.exit(1)
 
+# Create the filter_state table if it doesn't exist
+try:
+    cursor.execute('''CREATE TABLE IF NOT EXISTS filter_state (
+                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      timestamp TEXT,
+                      filter_state TEXT)''')
+    connection.commit()
+except sqlite3.Error as e:
+    print(f"Error creating table: {str(e)}")
+    sys.exit(1)
+
 # Data storage
 pm25_values = []
 timestamp_values = []
-
+current_relay_state = 'OFF'  # Track the current state of the relay
 
 def fetch_last_20_rows_columns():
     """Fetch the last 20 rows of PM2.5 and timestamp from the database."""
@@ -36,12 +47,6 @@ def fetch_last_20_rows_columns():
             timestamp_values.append(timestamp_unix)
     except sqlite3.Error as e:
         print(f"Error fetching data from database: {str(e)}")
-
-
-def celsius_to_fahrenheit(celsius):
-    """Convert Celsius to Fahrenheit."""
-    return (celsius * 9 / 5) + 32
-
 
 def read_baseline_value():
     """Read the baseline PM2.5 value from the database."""
@@ -71,9 +76,10 @@ def read_baseline_value():
         print(f"Database error: {str(e)}")
         return 7.5  # Default in case of a database error
 
-
 def check_rising_edge():
-    """Check for a rising edge in PM2.5 levels and update the database."""
+    """Check for a rising edge in PM2.5 levels and update the filter state."""
+    global current_relay_state
+
     baseline_pm25 = read_baseline_value()
 
     # Ensure baseline is at least 7.5
@@ -86,17 +92,22 @@ def check_rising_edge():
 
     if len(pm25_values) >= WINDOW_SIZE and all(timestamp >= one_hour_ago for timestamp in timestamp_values):
         threshold = 1.25
-        relay_state = 'ON' if all(data_point > threshold * baseline_pm25 for data_point in pm25_values) else 'OFF'
+        if current_relay_state == 'OFF' and all(data_point > threshold * baseline_pm25 for data_point in pm25_values):
+            current_relay_state = 'ON'
+            print("PM2.5 is above threshold. Relay turned ON.")
+        elif current_relay_state == 'ON' and all(data_point <= baseline_pm25 for data_point in pm25_values):
+            current_relay_state = 'OFF'
+            print("PM2.5 is at or below baseline. Relay turned OFF.")
     else:
         print(f"Not enough data points ({len(pm25_values)} out of {WINDOW_SIZE}). Skipping rising edge calculation.")
-        relay_state = 'OFF'
 
+    # Insert the relay_state into the filter_state table with the current timestamp
     try:
-        cursor.execute('''INSERT INTO pm25_data (filter_state) 
-                          VALUES (?)''', (relay_state,))
+        current_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        cursor.execute('''INSERT INTO filter_state (timestamp, filter_state) 
+                          VALUES (?, ?)''', (current_time_str, current_relay_state))
     except sqlite3.Error as e:
-        print(f"Error inserting data into database: {str(e)}")
-
+        print(f"Error inserting data into filter_state table: {str(e)}")
 
 if __name__ == "__main__":
     try:
