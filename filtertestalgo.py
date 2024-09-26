@@ -29,7 +29,7 @@ except sqlite3.Error as e:
 # Data storage
 pm25_values = []
 timestamp_values = []
-current_relay_state = 'OFF'  # Track the current state of the relay
+current_relay_state = 'OFF'  # Default value if no previous state is found
 
 def fetch_last_20_rows_columns():
     """Fetch the last 20 rows of PM2.5 and timestamp from the database."""
@@ -76,6 +76,19 @@ def read_baseline_value():
         print(f"Database error: {str(e)}")
         return 7.5  # Default in case of a database error
 
+def get_last_relay_state():
+    """Fetch the most recent relay state from the filter_state table."""
+    try:
+        cursor.execute("SELECT filter_state FROM filter_state ORDER BY id DESC LIMIT 1")
+        result = cursor.fetchone()
+        if result:
+            return result[0]  # 'ON' or 'OFF'
+        else:
+            return 'OFF'  # Default to 'OFF' if no entry found
+    except sqlite3.Error as e:
+        print(f"Error fetching the most recent relay state: {str(e)}")
+        return 'OFF'
+
 def check_rising_edge():
     """Check for a rising edge in PM2.5 levels and update the filter state."""
     global current_relay_state
@@ -111,6 +124,10 @@ def check_rising_edge():
 
 if __name__ == "__main__":
     try:
+        # Fetch the most recent relay state from the database when the script starts
+        current_relay_state = get_last_relay_state()
+        print(f"Initial relay state: {current_relay_state}")
+        
         check_rising_edge()
         connection.commit()
     except Exception as e:
