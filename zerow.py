@@ -1,7 +1,7 @@
 import time
 import paho.mqtt.client as mqtt
-import board
-from adafruit_bme280 import basic as adafruit_bme280
+import smbus2
+import bme280
 from sps30 import SPS30
 import logging
 import subprocess
@@ -23,8 +23,14 @@ client.on_publish = on_publish
 client.connect(broker_address, 1883, 60)
 
 
-i2c = board.I2C()  # uses board.SCL and board.SDA
-bme280 = adafruit_bme280.Adafruit_BME280_I2C(i2c)
+# BME280 sensor address (default address)
+address = 0x76
+
+# Initialize I2C bus
+bus = smbus2.SMBus(1)
+
+# Load calibration parameters
+calibration_params = bme280.load_calibration_params(bus, address)
 
 sps30 = SPS30(port=1)
 
@@ -51,12 +57,12 @@ def get_wifi_strength():
 
 try:
     sps30.read_measured_values()
-
+    data = bme280.sample(bus, address, calibration_params)
     pm25 = sps30.dict_values['pm2p5']
 
-    temperature_celsius = bme280.temperature
+    temperature_celsius = data.temperature   
+    humidity = data.humidity
     temperature = celsius_to_fahrenheit(temperature_celsius)
-    humidity = bme280.humidity
 
     sensor_data = {
         "PM2.5": pm25,
