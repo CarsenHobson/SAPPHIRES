@@ -6,7 +6,7 @@ import RPi.GPIO as GPIO
 # MQTT settings
 MQTT_BROKER = "10.42.0.1"
 MQTT_PORT = 1883
-MQTT_TOPIC = "Reset2"
+MQTT_TOPIC = "Filter"
 
 # GPIO settings
 GPIO_PIN = 14
