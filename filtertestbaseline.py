@@ -53,6 +53,20 @@ def get_last_60_pm25_values():
     # Return a list of the PM2.5 values (ignoring the SQL tuples)
     return [row[0] for row in results]
 
+def check_baseline_value(latest_baseline):
+    try:
+        cursor.execute("SELECT baseline FROM pm25_data ORDER BY timestamp DESC LIMIT 5")
+        rows = cursor.fetchall()
+        baseline_values = [row[0] for row in rows]
+        average_baseline_values = sum(baseline_values) / len(baseline_values) 
+        if latest_baseline > 1.5 * average_baseline_values and latest_baseline < 7.5:
+           return 7.5
+        else:
+            return latest_baseline
+    except sqlite3.Error as e:
+        print(f"Database error: {str(e)}")
+        return 7.5  # Default in case of a database error
+    
 def calculate_average(values):
     if not values:
         return 0.0
@@ -104,10 +118,9 @@ def main():
 
     # Step 4: Create the baseline table if it doesn't exist
     create_baseline_table()
-
+    baseline = check_baseline_value(average_pm25)
     # Step 5: Insert the calculated average into the baseline table
-    insert_baseline_value(average_pm25)
+    insert_baseline_value(baseline)
 
 if __name__ == '__main__':
     main()
-
