@@ -18,11 +18,55 @@ app = dash.Dash(__name__,
                 suppress_callback_exceptions=True,
                 prevent_initial_callbacks=True)
 
+# Connect to SQLite database (or create it if it doesn't exist)
+conn = sqlite3.connect('relay_status.db')
+cursor = conn.cursor()
+
+# Define a script with multiple CREATE TABLE statements
+create_tables_script = """
+CREATE TABLE IF NOT EXISTS Outdoor (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    age INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS Indoor (
+    id INTEGER PRIMARY KEY,
+    description TEXT,
+    price REAL
+);
+
+CREATE TABLE IF NOT EXISTS UserControl (
+    id INTEGER PRIMARY KEY,
+    product_id INTEGER,
+    quantity INTEGER,
+    FOREIGN KEY (product_id) REFERENCES table2 (id)
+);
+
+CREATE TABLE IF NOT EXISTS FanControl (
+    id INTEGER PRIMARY KEY,
+    product_id INTEGER,
+    quantity INTEGER,
+    FOREIGN KEY (product_id) REFERENCES table2 (id)
+);
+
+CREATE TABLE IF NOT EXISTS Baseline (
+    id INTEGER PRIMARY KEY,
+    product_id INTEGER,
+    quantity INTEGER,
+    FOREIGN KEY (product_id) REFERENCES table2 (id)
+);
+"""
+# Execute the script
+cursor.executescript(create_tables_script)
+conn.commit()
+conn.close()
+
 # Layout for the main dashboard with gauges
 def dashboard_layout():
     return dbc.Container([
         dbc.Row([
-            dbc.Col(html.H1("Air Quality Dashboard", className="text-center text-dark mb-4"), width=12)
+            dbc.Col(html.H1("CURRENT CONDITIONS", className="text-center text-dark mb-4"), width=12)
         ]),
         dbc.Row([
             dbc.Col(html.Div([
@@ -179,7 +223,7 @@ def update_fan_state(state):
      Input('close-notification-on', 'n_clicks')],
     [State('workflow-state', 'data')]
 )
-def handle_modals(disable_fan_clicks, confirm_yes_clicks, confirm_no_clicks, warning_yes_clicks, warning_no_clicks, 
+def handle_modals(disable_fan_clicks, confirm_yes_clicks, confirm_no_clicks, warning_yes_clicks, warning_no_clicks,
                   close_cancel_clicks, close_notification_on_clicks, workflow_state):
     triggered_id = callback_context.triggered[0]['prop_id'].split('.')[0] if callback_context.triggered else None
 
@@ -217,7 +261,7 @@ def handle_modals(disable_fan_clicks, confirm_yes_clicks, confirm_no_clicks, war
     elif triggered_id in ['warning-no', 'confirm-no', 'close-cancel']:
         stage = 'initial'
 
-    return (confirm_modal_open, cancel_modal_open, warning_modal_open, notification_on_modal_open, 
+    return (confirm_modal_open, cancel_modal_open, warning_modal_open, notification_on_modal_open,
             interval_disabled, button_text, button_class, {'stage': stage})
 
 
