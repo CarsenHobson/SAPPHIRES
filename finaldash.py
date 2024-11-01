@@ -1,60 +1,63 @@
 import dash
-from dash import dcc, html
+from dash import dcc, html, callback_context
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 import sqlite3
 import pandas as pd
 import plotly.graph_objs as go
 import datetime
-from dash import callback_context
+import base64
 
 # Paths to the SQLite databases
 db_path = '/home/mainhubs/pm25_data.db'  # Replace with the correct path to your database
 DATABASE_PATH = 'fan_state.db'
 
-# Initialize the Dash app
-app = dash.Dash(__name__,
-                external_stylesheets=[dbc.themes.BOOTSTRAP],
-                suppress_callback_exceptions=True,
-                prevent_initial_callbacks=True)
+app = dash.Dash(__name__, 
+                external_stylesheets=[dbc.themes.BOOTSTRAP, "https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"],
+                suppress_callback_exceptions=True)
+
+# Improved color scheme
+BACKGROUND_COLOR = "#f0f2f5"
+PRIMARY_COLOR = "#FFFFCB"
+SUCCESS_COLOR = "#28a745"
+WARNING_COLOR = "#ffc107"
+DANGER_COLOR = "#dc3545"
+
 
 # Connect to SQLite database (or create it if it doesn't exist)
-conn = sqlite3.connect('relay_status.db')
+conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 
 # Define a script with multiple CREATE TABLE statements
 create_tables_script = """
-CREATE TABLE IF NOT EXISTS Outdoor (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
-    age INTEGER
-);
-
 CREATE TABLE IF NOT EXISTS Indoor (
-    id INTEGER PRIMARY KEY,
-    description TEXT,
-    price REAL
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT,
+    pm25 REAL
 );
 
-CREATE TABLE IF NOT EXISTS UserControl (
-    id INTEGER PRIMARY KEY,
-    product_id INTEGER,
-    quantity INTEGER,
-    FOREIGN KEY (product_id) REFERENCES table2 (id)
+CREATE TABLE IF NOT EXISTS baseline (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT,
+    baseline_value REAL
 );
 
-CREATE TABLE IF NOT EXISTS FanControl (
-    id INTEGER PRIMARY KEY,
-    product_id INTEGER,
-    quantity INTEGER,
-    FOREIGN KEY (product_id) REFERENCES table2 (id)
+CREATE TABLE IF NOT EXISTS user_control (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT,
+    user_input TEXT
 );
 
-CREATE TABLE IF NOT EXISTS Baseline (
-    id INTEGER PRIMARY KEY,
-    product_id INTEGER,
-    quantity INTEGER,
-    FOREIGN KEY (product_id) REFERENCES table2 (id)
+CREATE TABLE IF NOT EXISTS filter_state (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT,
+    filter_state TEXT
+);
+
+CREATE TABLE IF NOT EXISTS pm25_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT,
+    pm25_value REAL
 );
 """
 # Execute the script
@@ -62,128 +65,331 @@ cursor.executescript(create_tables_script)
 conn.commit()
 conn.close()
 
-# Layout for the main dashboard with gauges
+def encode_image(image_path):
+    with open(image_path, "rb") as f:
+        encoded = base64.b64encode(f.read()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+# Paths to the images you uploaded
+emoji_paths = {
+    "good": "/home/mainhubs/good.png",
+    "moderate": "/home/mainhubs/moderate.png",
+    "unhealthy_sensitive": "/home/mainhubs/unhealthy_sensitive.png",
+    "unhealthy": "/home/mainhubs/unhealthy.png",
+    "very_unhealthy": "/home/mainhubs/very_unhealthy.png",
+    "hazardous": "/home/mainhubs/hazardous.png"
+}
+
+# Helper function to select image based on AQI
+def get_aqi_emoji(aqi):
+    if aqi <= 25:
+        return encode_image(emoji_paths["good"])
+    elif 26 <= aqi <= 50:
+        return encode_image(emoji_paths["moderate"])
+    elif 51 <= aqi <= 75:
+        return encode_image(emoji_paths["unhealthy_sensitive"])
+    elif 76 <= aqi <= 100:
+        return encode_image(emoji_paths["unhealthy"])
+    elif 101 <= aqi <= 125:
+        return encode_image(emoji_paths["very_unhealthy"])
+    else:
+        return encode_image(emoji_paths["hazardous"])
+
+# Function to determine gauge color based on AQI level
+def get_gauge_color(aqi):
+    if aqi <= 25:
+        return "green"
+    elif 26 <= aqi <= 50:
+        return "yellow"
+    elif 51 <= aqi <= 75:
+        return "orange"
+    elif 76 <= aqi <= 100:
+        return "#ff6600"  # Dark orange
+    elif 101 <= aqi <= 125:
+        return "red"
+    else:
+        return "#8b0000"  # Dark red for hazardous levels
+
 def dashboard_layout():
     return dbc.Container([
         dbc.Row([
-            dbc.Col(html.H1("CURRENT CONDITIONS", className="text-center text-dark mb-4"), width=12)
-        ]),
+            dbc.Col(
+                html.H1(
+                    "CURRENT CONDITIONS", 
+                    className="text-center mb-0",  
+                    style={
+                        "font-family": "Roboto, sans-serif", 
+                        "font-weight": "700", 
+                        "color": "black", 
+                        "font-size": "2.5rem", 
+                        "background-color": PRIMARY_COLOR, 
+                        "padding": "20px",
+                        "border": "2px solid black", 
+                    }
+                ), 
+                width=12
+            )
+        ], className="g-0"),  
+
+        # Main content row with cards
         dbc.Row([
-            dbc.Col(html.Div([
-                html.H3("Inside", className="text-center text-warning mb-3"),
-                dcc.Graph(id="indoor-gauge"),
-                html.Div(id="indoor-value", className="display-4 text-center text-dark mt-2")
-            ]), width=6, className="border-right"),
-            dbc.Col(html.Div([
-                html.H3("Outside", className="text-center text-info mb-3"),
-                dcc.Graph(id="outdoor-gauge"),
-                html.Div(id="outdoor-value", className="display-4 text-center text-dark mt-2")
-            ]), width=6)
-        ], className="mb-4"),
+            # Indoor AQI card
+            dbc.Col(dbc.Card([
+                dbc.CardHeader("INSIDE", className="text-center mb-0",  
+                               style={
+                                   "font-size": "1.5rem", 
+                                   "font-weight": "700", 
+                                   "color": "black", 
+                                   "background": "white", 
+                                   "border-bottom": "2px solid black",
+                                   "border-right": "2px solid black",
+                                   "border-left": "2px solid black"
+                               }),
+                dbc.CardBody([
+                    dcc.Graph(id="indoor-gauge", config={"displayModeBar": False})
+                ], style={
+                    "padding": "30px", 
+                    "border": "2px solid black", 
+                    "border-top": "none",
+                    "border-bottom": "none",  # No border at bottom to avoid overlap with button
+                    "height": "682px"  # Stops before the button
+                })
+            ]), width=6, className="p-0"),  
+
+            # Outdoor AQI card
+            dbc.Col(dbc.Card([
+                dbc.CardHeader("OUTSIDE", className="text-center mb-0",
+                               style={
+                                   "font-size": "1.5rem", 
+                                   "font-weight": "700", 
+                                   "color": "black", 
+                                   "background": "white", 
+                                   "border-bottom": "2px solid black",
+                                   "border-right": "2px solid black",
+                                   "border-left": "2px solid black"
+                               }),
+                dbc.CardBody([
+                    dcc.Graph(id="outdoor-gauge", config={"displayModeBar": False})
+                ], style={
+                    "padding": "30px", 
+                    "border": "2px solid black", 
+                    "border-top": "none",
+                    "border-bottom": "none",  # No border at bottom to avoid overlap with button
+                    "height": "682px"  # Stops before the button
+                })
+            ]), width=6, className="p-0")
+        ], className="g-0"),
+
+        # Centered Fan Control Button with style improvements
         dbc.Row([
-            dbc.Col(html.H3("Filter State", className="text-center text-success")),
-            dbc.Col(html.Div(id="filter-state", className="display-4 text-center text-dark mt-2")),
-        ], className="mb-4"),
-        dbc.Row([
-            dbc.Col(dcc.Link("Go to Filtration Control", href='/control', className="btn btn-primary mt-4"), width=12)
-        ]),
-        dcc.Interval(id='interval-component', interval=10 * 1000, n_intervals=0)
+            html.Div(
+                html.Button("Disable Fan", id="disable-fan", 
+                            className="btn btn-danger btn-lg", 
+                            style={
+                                "width": "200px", 
+                                "border-radius": "100px", 
+                                "font-size": "1.2rem"
+                            }),
+                style={
+                    "border": "2px solid black", 
+                    "padding": "10px", 
+                    "width": "250px", 
+                    "height": "200px",
+                    "position": "absolute",  # Absolute positioning
+                    "left": "825px",  # x-coordinate
+                    "top": "682px",  # y-coordinate to place at the desired location
+                    "display": "flex",  # Use flexbox to center content
+                    "align-items": "center",  # Center vertically
+                    "justify-content": "center",  # Center horizontally
+                    "text-align": "center",
+                    "box-sizing": "border-box"  # Ensure padding does not affect width
+                }
+            )
+        ], className="g-0"),
+
+        
+     
+        # Modal for confirmation and notification
+        dbc.Modal([
+            dbc.ModalHeader("Confirm Action"),
+            dbc.ModalBody("Are you sure you want to disable the fan?"),
+            dbc.ModalFooter([
+                dbc.Button("Yes", id="confirm-yes", className="btn btn-primary"),
+                dbc.Button("No", id="confirm-no", className="btn btn-secondary")
+            ])
+        ], id="modal-confirm", is_open=False, backdrop="static", centered=True),
+        
+        dbc.Modal([
+            dbc.ModalHeader("Warning", style={'color': 'red'}),
+            dbc.ModalBody("Disabling the fan may affect air quality. Do you want to proceed?"),
+            dbc.ModalFooter([
+                dbc.Button("Proceed", id="warning-yes", className="btn btn-danger"),
+                dbc.Button("Cancel", id="warning-no", className="btn btn-secondary")
+            ])
+        ], id="modal-warning", is_open=False, backdrop="static", centered=True),
+
+        dbc.Modal([
+            dbc.ModalHeader("Fan Enabled"),
+            dbc.ModalBody("The fan has been re-enabled."),
+            dbc.ModalFooter(dbc.Button("Close", id="close-notification", className="btn btn-secondary"))
+        ], id="modal-notification", is_open=False, backdrop="static", centered=True),
+
+        dcc.Interval(id='interval-component', interval=10 * 1000, n_intervals=0),
+        dcc.Store(id='workflow-state', data={'stage': 'initial'})
     ], fluid=True, className="p-4")
 
-# Callback for updating the dashboard with gauge and PM2.5 values
+
 @app.callback(
-    [
-        Output('outdoor-value', 'children'),
-        Output('indoor-value', 'children'),
-        Output('filter-state', 'children'),
-        Output('outdoor-gauge', 'figure'),
-        Output('indoor-gauge', 'figure')
-    ],
+    [Output('indoor-gauge', 'figure'),
+     Output('outdoor-gauge', 'figure')],
     [Input('interval-component', 'n_intervals')]
 )
 def update_dashboard(n):
-    # Connect to the database
     conn = sqlite3.connect(db_path)
-
-    # SQL queries
-    outdoor_pm25_query = "SELECT timestamp, pm25_value FROM pm25_data ORDER BY timestamp DESC LIMIT 1;"
-    indoor_pm25_query = "SELECT timestamp, pm25 FROM Indoor ORDER BY timestamp DESC LIMIT 1;"
-    filter_state_query = "SELECT filter_state FROM filter_state ORDER BY timestamp DESC LIMIT 1;"
-
+    
+    # Queries for AQI
     try:
-        outdoor_pm25_data = pd.read_sql(outdoor_pm25_query, conn)
-        indoor_pm25_data = pd.read_sql(indoor_pm25_query, conn)
-        filter_state = conn.execute(filter_state_query).fetchone()[0] if conn.execute(filter_state_query).fetchone() else "Unknown"
-    except Exception:
-        outdoor_pm25_data = pd.DataFrame(columns=['timestamp', 'pm25_value'])
-        indoor_pm25_data = pd.DataFrame(columns=['timestamp', 'pm25'])
-        filter_state = "Unknown"
+        # Fetch the latest and past 3 indoor AQI readings
+        indoor_data = pd.read_sql("SELECT pm25 FROM Indoor ORDER BY timestamp DESC LIMIT 4;", conn)
+        outdoor_data = pd.read_sql("SELECT pm25_value FROM pm25_data ORDER BY timestamp DESC LIMIT 4;", conn)
+        
+        # Determine current AQI values
+        indoor_aqi = int(indoor_data['pm25'].iloc[0])
+        outdoor_aqi = int(outdoor_data['pm25_value'].iloc[0])
+
+        # Calculate past averages (last 3 readings) for comparison
+        indoor_aqi_avg = indoor_data['pm25'].iloc[1:].mean()
+        outdoor_aqi_avg = outdoor_data['pm25_value'].iloc[1:].mean()
+    except Exception as e:
+        print(f"Error retrieving data: {e}")
+        indoor_aqi, outdoor_aqi, indoor_aqi_avg, outdoor_aqi_avg = 0, 0, 0, 0
     finally:
         conn.close()
 
-    outdoor_value = int(round(outdoor_pm25_data['pm25_value'].iloc[0])) if not outdoor_pm25_data.empty else "No Data"
-    indoor_value = int(round(indoor_pm25_data['pm25'].iloc[0])) if not indoor_pm25_data.empty else "No Data"
+    # Determine arrow direction and color
+    indoor_arrow = "⬆️" if indoor_aqi > indoor_aqi_avg else "⬇️"
+    indoor_arrow_color = "green" if indoor_aqi < indoor_aqi_avg else "red"
 
-    # Create gauge figures for outdoor and indoor PM2.5 levels
-    outdoor_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=outdoor_value if outdoor_value != "No Data" else 0,
-        title={'text': "Outdoor PM2.5"},
-        gauge={'axis': {'range': [0, 500]}, 'bar': {'color': "blue"}}
-    ))
+    outdoor_arrow = "⬆️" if outdoor_aqi > outdoor_aqi_avg else "⬇️"
+    outdoor_arrow_color = "green" if outdoor_aqi < outdoor_aqi_avg else "red"
+    
+     # Get emojis
+    indoor_emoji = get_aqi_emoji(indoor_aqi)
+    outdoor_emoji = get_aqi_emoji(outdoor_aqi)
+
+    # Gauge figures with AQI number and separate arrow annotation
     indoor_gauge = go.Figure(go.Indicator(
         mode="gauge+number",
-        value=indoor_value if indoor_value != "No Data" else 0,
-        title={'text': "Indoor PM2.5"},
-        gauge={'axis': {'range': [0, 500]}, 'bar': {'color': "orange"}}
+        value=indoor_aqi,
+        gauge={
+            'axis': {'range': [0, 150]},
+            'bar': {'color': get_gauge_color(indoor_aqi)},
+            'bgcolor': "lightgray",
+            'bordercolor': "black",
+        },
+        number={
+            'font': {'color': "black"}  # Keep AQI number color standard
+        }
     ))
+    
+   # Add Emoji as an Image for Indoor AQI
+    indoor_gauge.add_layout_image(
+        dict(
+            source=indoor_emoji,
+            xref="paper", yref="paper",
+            x=0.5, y=0.5,
+            sizex=0.3, sizey=0.3,
+            xanchor="center", yanchor="middle"
+        )
+    )
+    # Add arrow as a separate annotation
+    indoor_gauge.add_annotation(
+        x=0.59, y=0.01, text=indoor_arrow,
+        font=dict(size=70, color=indoor_arrow_color),
+        showarrow=False
+    )
 
-    return str(outdoor_value), str(indoor_value), filter_state, outdoor_gauge, indoor_gauge
+    outdoor_gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=outdoor_aqi,
+        gauge={
+            'axis': {'range': [0, 150]},
+            'bar': {'color': get_gauge_color(outdoor_aqi)},
+            'bgcolor': "lightgray",
+            'bordercolor': "black",
+        },
+        number={
+            'font': {'color': "black"}  # Keep AQI number color standard
+        }
+    ))
+    # Add Emoji as an Image for Outdoor AQI
+    outdoor_gauge.add_layout_image(
+        dict(
+            source=outdoor_emoji,
+            xref="paper", yref="paper",
+            x=0.5, y=0.5,
+            sizex=0.3, sizey=0.3,
+            xanchor="center", yanchor="middle"
+        )
+    )
+    # Add arrow as a separate annotation
+    outdoor_gauge.add_annotation(
+        x=0.59, y=0.01, text=outdoor_arrow,
+        font=dict(size=70, color=outdoor_arrow_color),
+        showarrow=False
+    )
+
+    return indoor_gauge, outdoor_gauge
 
 
-# Layout for the fan control page with modals
-def control_workflow_layout():
-    last_state = get_last_state_from_db()
-    button_text = "Disable Fan" if last_state == "ON" else "Turn Fan On"
-    button_color = "danger" if last_state == "ON" else "success"
 
-    return html.Div([
-        html.Div(id='disable-fan-div', children=[
-            html.Button(button_text, id='disable-fan', className=f"btn btn-{button_color} btn-lg",
-                        style={'width': '200px', 'height': '200px', 'border-radius': '50%', 'font-size': '20px',
-                               'text-align': 'center', 'line-height': '160px'})
-        ], style={'display': 'flex', 'justify-content': 'center', 'align-items': 'center', 'min-height': '100vh'}),
+# Modal workflow callback
+@app.callback(
+    [Output('modal-confirm', 'is_open'),
+     Output('modal-warning', 'is_open'),
+     Output('modal-notification', 'is_open'),
+     Output('disable-fan', 'children'),
+     Output('workflow-state', 'data')],
+    [Input('disable-fan', 'n_clicks'),
+     Input('confirm-yes', 'n_clicks'),
+     Input('confirm-no', 'n_clicks'),
+     Input('warning-yes', 'n_clicks'),
+     Input('warning-no', 'n_clicks'),
+     Input('close-notification', 'n_clicks')],
+    [State('workflow-state', 'data')]
+)
+def handle_modals(disable_fan_clicks, confirm_yes_clicks, confirm_no_clicks, warning_yes_clicks, warning_no_clicks,
+                  close_notification, workflow_state):
+    triggered_id = callback_context.triggered[0]['prop_id'].split('.')[0] if callback_context.triggered else None
 
-        dbc.Modal([dbc.ModalHeader("Confirm Your Action"),
-                   dbc.ModalBody("Did you intend to press the 'Disable Fan' button?"),
-                   dbc.ModalFooter([
-                       dbc.Button("Yes (Continue to Disable)", id="confirm-yes", className="btn btn-primary", n_clicks=0),
-                       dbc.Button("No (Cancel Disable)", id="confirm-no", className="btn btn-secondary", n_clicks=0)])],
-                  id="modal-confirm", is_open=False, backdrop="static", size="lg", centered=True),
+    # State initialization
+    confirm_open = False
+    warning_open = False
+    notification_open = False
 
-        dbc.Modal([dbc.ModalHeader("Action Canceled"),
-                   dbc.ModalBody("The 'Disable Fan' command was canceled."),
-                   dbc.ModalFooter(dbc.Button("Close", id="close-cancel", className="btn btn-secondary", n_clicks=0))],
-                  id="modal-cancel", is_open=False, backdrop="static", size="lg", centered=True),
+    stage = workflow_state.get('stage', 'initial')
+    button_text = "Disable Fan" if stage == 'initial' else "Enable Fan"
 
-        dbc.Modal([dbc.ModalHeader("Warning", style={'backgroundColor': '#f0f0f0', 'color': 'red'}),
-                   dbc.ModalBody("Disabling the fan may affect air quality. Do you want to continue?"),
-                   dbc.ModalFooter([
-                       dbc.Button("Yes (Continue to Disable)", id="warning-yes", className="btn btn-primary", n_clicks=0),
-                       dbc.Button("No (Cancel)", id="warning-no", className="btn btn-secondary", n_clicks=0)])],
-                  id="modal-warning", is_open=False, backdrop="static", size="lg", centered=True),
+    # Workflow logic
+    if triggered_id == 'disable-fan' and stage == 'initial':
+        confirm_open = True
+        stage = 'confirm'
+    elif triggered_id == 'confirm-yes':
+        confirm_open = False
+        warning_open = True
+        stage = 'warning'
+    elif triggered_id == 'warning-yes':
+        update_fan_state('OFF')
+        button_text = "Enable Fan"
+        stage = 'fan_off'
+    elif triggered_id == 'close-notification':
+        notification_open = False
+    elif triggered_id == 'confirm-no' or triggered_id == 'warning-no':
+        stage = 'initial'
 
-        dbc.Modal([dbc.ModalHeader("Notification"),
-                   dbc.ModalBody("The fan is now enabled and will filter the air."),
-                   dbc.ModalFooter(dbc.Button("Close", id="close-notification-on", className="btn btn-secondary", n_clicks=0))],
-                  id="modal-notification-on", is_open=False, backdrop="static", size="lg", centered=True),
+    return confirm_open, warning_open, notification_open, button_text, {'stage': stage}
 
-        dcc.Interval(id='interval-timer', interval=10 * 1000, n_intervals=0, disabled=True),
-        dcc.Store(id='workflow-state', data={'stage': 'initial'}),
-        dcc.Link("Back to Dashboard", href='/', className="btn btn-secondary mt-4")
-    ])
-
-# Helper function for last fan state
+# Helper functions for fan state
 def get_last_state_from_db():
     try:
         conn = sqlite3.connect(DATABASE_PATH)
@@ -195,7 +401,6 @@ def get_last_state_from_db():
     except sqlite3.Error:
         return "OFF"
 
-# Update fan state in database
 def update_fan_state(state):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     conn = sqlite3.connect(DATABASE_PATH)
@@ -203,67 +408,6 @@ def update_fan_state(state):
     cursor.execute('INSERT INTO fan_state (state, timestamp) VALUES (?, ?)', (state, timestamp))
     conn.commit()
     conn.close()
-
-# Modal handling callback
-@app.callback(
-    [Output('modal-confirm', 'is_open'),
-     Output('modal-cancel', 'is_open'),
-     Output('modal-warning', 'is_open'),
-     Output('modal-notification-on', 'is_open'),
-     Output('interval-timer', 'disabled'),
-     Output('disable-fan', 'children'),
-     Output('disable-fan', 'className'),
-     Output('workflow-state', 'data')],
-    [Input('disable-fan', 'n_clicks'),
-     Input('confirm-yes', 'n_clicks'),
-     Input('confirm-no', 'n_clicks'),
-     Input('warning-yes', 'n_clicks'),
-     Input('warning-no', 'n_clicks'),
-     Input('close-cancel', 'n_clicks'),
-     Input('close-notification-on', 'n_clicks')],
-    [State('workflow-state', 'data')]
-)
-def handle_modals(disable_fan_clicks, confirm_yes_clicks, confirm_no_clicks, warning_yes_clicks, warning_no_clicks,
-                  close_cancel_clicks, close_notification_on_clicks, workflow_state):
-    triggered_id = callback_context.triggered[0]['prop_id'].split('.')[0] if callback_context.triggered else None
-
-    # Modal and button state initialization
-    confirm_modal_open = False
-    cancel_modal_open = False
-    warning_modal_open = False
-    notification_on_modal_open = False
-    interval_disabled = True
-
-    # Workflow logic
-    stage = workflow_state.get('stage', 'initial')
-    button_text = "Turn Fan On" if stage == 'fan_off' else "Disable Fan"
-    button_class = "btn btn-success btn-lg" if stage == 'fan_off' else "btn btn-danger btn-lg"
-
-    # Trigger actions based on button clicks
-    if triggered_id == 'disable-fan':
-        if stage == 'fan_off':
-            update_fan_state('ON')
-            notification_on_modal_open = True
-            stage = 'initial'
-        else:
-            confirm_modal_open = True
-            stage = 'confirm'
-    elif triggered_id == 'confirm-yes':
-        confirm_modal_open = False
-        warning_modal_open = True
-        stage = 'warning'
-    elif triggered_id == 'warning-yes':
-        update_fan_state('OFF')
-        stage = 'fan_off'
-        interval_disabled = False
-        button_text = "Turn Fan On"
-        button_class = "btn btn-success btn-lg"
-    elif triggered_id in ['warning-no', 'confirm-no', 'close-cancel']:
-        stage = 'initial'
-
-    return (confirm_modal_open, cancel_modal_open, warning_modal_open, notification_on_modal_open,
-            interval_disabled, button_text, button_class, {'stage': stage})
-
 
 # Layout setup with page navigation
 app.layout = html.Div([
@@ -273,10 +417,10 @@ app.layout = html.Div([
 
 @app.callback(Output('page-content', 'children'), [Input('url', 'pathname')])
 def display_page(pathname):
-    if pathname == '/control':
-        return control_workflow_layout()
-    else:
+    if pathname == '/':
         return dashboard_layout()
+    else:
+        return html.Div("Page not found")
 
 # Run the app
 if __name__ == '__main__':
