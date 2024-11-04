@@ -124,91 +124,150 @@ def dashboard_layout():
                         "font-size": "2.5rem", 
                         "background-color": PRIMARY_COLOR, 
                         "padding": "20px",
-                        "border": "2px solid black", 
+                        "border": "2px solid black",
+                        "border-radius": "10px 10px 0 0"
                     }
                 ), 
                 width=12
             )
         ], className="g-0"),  
 
-        # Main content row with cards
+            # Main content row with cards
         dbc.Row([
-            # Indoor AQI card
+            # Inside AQI card with Temperature box
             dbc.Col(dbc.Card([
-                dbc.CardHeader("INSIDE", className="text-center mb-0",  
+                dbc.CardHeader("INSIDE", className="text-center mb-0",
                                style={
-                                   "font-size": "1.5rem", 
-                                   "font-weight": "700", 
-                                   "color": "black", 
-                                   "background": "white", 
+                                   "font-size": "1.5rem",
+                                   "font-weight": "700",
+                                   "color": "black",
+                                   "background": "white",
                                    "border-bottom": "2px solid black",
                                    "border-right": "2px solid black",
                                    "border-left": "2px solid black"
                                }),
-                dbc.CardBody([
-                    dcc.Graph(id="indoor-gauge", config={"displayModeBar": False})
-                ], style={
-                    "padding": "30px", 
-                    "border": "2px solid black", 
-                    "border-top": "none",
-                    "border-bottom": "none",  # No border at bottom to avoid overlap with button
-                    "height": "682px"  # Stops before the button
-                })
-            ]), width=6, className="p-0"),  
+                html.Div([
+                    # Top two-thirds with black border
+                    html.Div([
+                        dcc.Graph(id="indoor-gauge", config={"displayModeBar": False})
+                    ], style={
+                        "padding": "30px",
+                        "border": "2px solid black",
+                        "border-top": "none",
+                        "border-bottom": "none",
+                        "height": "455px"  # Adjust height for top two-thirds
+                    }),
+                    # Bottom third with temperature box
+                    html.Div([
+                        # Temperature box in the bottom left
+                        html.Div("Temperature", className="d-flex justify-content-center align-items-center",
+                                 style={
+                                     "width": "400px",
+                                     "height": "150px",
+                                     "border": "2px solid black",
+                                     "position": "absolute",  # Align to the right
+                                     "font-size": "1.5rem",
+                                     "bottom": "0",
+                                     "left": "0",
+                                     "text-align": "center",
+                                     "background-color": "#D2B48C",
+                                     "border-radius": "5px 7px 5px 0"
+                                 })
+                    ], style={
+                        "padding": "30px",
+                        "border-left": "2px solid black",
+                        "border-right": "2px solid black",
+                        "border-bottom": "2px solid black",  # Add a bottom border to align with button
+                        "height": "227px",  # Adjust height for bottom third
+                        "background-color": "transparent"  # Ensure background is transparent
+                    })
+                ])
+            ]), width=6, className="p-0"),
 
-            # Outdoor AQI card
+            # Outside AQI card with Temperature box
             dbc.Col(dbc.Card([
                 dbc.CardHeader("OUTSIDE", className="text-center mb-0",
                                style={
-                                   "font-size": "1.5rem", 
-                                   "font-weight": "700", 
-                                   "color": "black", 
-                                   "background": "white", 
+                                   "font-size": "1.5rem",
+                                   "font-weight": "700",
+                                   "color": "black",
+                                   "background": "white",
                                    "border-bottom": "2px solid black",
                                    "border-right": "2px solid black",
-                                   "border-left": "2px solid black"
+                                   "border-left": "2px solid black",
                                }),
-                dbc.CardBody([
-                    dcc.Graph(id="outdoor-gauge", config={"displayModeBar": False})
-                ], style={
-                    "padding": "30px", 
-                    "border": "2px solid black", 
-                    "border-top": "none",
-                    "border-bottom": "none",  # No border at bottom to avoid overlap with button
-                    "height": "682px"  # Stops before the button
-                })
-            ]), width=6, className="p-0")
-        ], className="g-0"),
+                html.Div([
+                    # Top two-thirds with black border
+                    html.Div([
+                        dcc.Graph(id="outdoor-gauge", config={"displayModeBar": False})
+                    ], style={
+                        "padding": "30px",
+                        "border": "2px solid black",
+                        "border-top": "none",
+                        "border-bottom": "none",
+                        "height": "455px"  # Adjust height for top two-thirds
+                    }),
+                    # Bottom third with temperature box
+                    html.Div([
+                        # Temperature box in the bottom right
+                        html.Div("Temperature", className="d-flex justify-content-center align-items-center",
+                                 style={
+                                     "width": "400px",
+                                     "height": "150px",
+                                     "border": "2px solid black",
+                                     "position": "absolute",  # Align to the right
+                                     "font-size": "1.5rem",
+                                     "bottom": "0",
+                                     "right": "0",
+                                     "text-align": "center",
+                                     "background-color": "#7BC8F6",
+                                     "border-radius": "7px 5px 5px 0"
+                                 })
+                    ], style={
+                        "padding": "30px",
+                        "border-left": "2px solid black",
+                        "border-right": "2px solid black",
+                        "border-bottom": "2px solid black",  # Add a bottom border to align with button
+                        "height": "227px",  # Adjust height for bottom third
+                        "background-color": "transparent"  # Ensure background is transparent
+                    })
+                ])
+            ]), width=6, className="p-0")]),
 
-        # Centered Fan Control Button with style improvements
+
+        # Centered Fan Control Button with border aligned to bottom of cards
         dbc.Row([
             html.Div(
-                html.Button("Disable Fan", id="disable-fan", 
+                html.Button("Override Fan", id="disable-fan", 
                             className="btn btn-danger btn-lg", 
                             style={
-                                "width": "200px", 
-                                "border-radius": "100px", 
-                                "font-size": "1.2rem"
+                                "width": "200px",
+                                "height": "100px",
+                                "border-radius": "200px", 
+                                "font-size": "1.8rem",
+                                "text-color": "yellow"
                             }),
                 style={
-                    "border": "2px solid black", 
+                    "border": "2px solid black",  # Add border around the button container
                     "padding": "10px", 
-                    "width": "250px", 
+                    "width": "300px", 
                     "height": "200px",
                     "position": "absolute",  # Absolute positioning
-                    "left": "825px",  # x-coordinate
-                    "top": "682px",  # y-coordinate to place at the desired location
+                    "left": "50%",  # Center horizontally
+                    "transform": "translateX(-50%)",  # Adjust for true centering
+                    "bottom": "683px",  # Align to the bottom of the parent container
                     "display": "flex",  # Use flexbox to center content
                     "align-items": "center",  # Center vertically
                     "justify-content": "center",  # Center horizontally
                     "text-align": "center",
-                    "box-sizing": "border-box"  # Ensure padding does not affect width
+                    "box-sizing": "border-box",  # Ensure padding does not affect width
+                    "background-color": "black",
+                    "border-radius": "7px" # Background to make the button stand out
                 }
             )
-        ], className="g-0"),
+        ], style={"position": "relative", "height": "682px"}, className="g-0"),
 
-        
-     
+
         # Modal for confirmation and notification
         dbc.Modal([
             dbc.ModalHeader("Confirm Action"),
@@ -288,7 +347,11 @@ def update_dashboard(n):
             'bordercolor': "black",
         },
         number={
-            'font': {'color': "black"}  # Keep AQI number color standard
+            "font": {'color': "black"},  # Keep AQI number color standard
+            'xanchor': "center",  # Horizontal alignment (options: "auto", "left", "center", "right")
+            'yanchor': "bottom",  # Vertical alignment (options: "auto", "top", "middle", "bottom")
+            'x': 0.5,  # X-coordinate (relative position from 0 to 1)
+            'y': 1.2   # Y-coordinate (relative position, can be adjusted)  # Keep AQI number color standard
         }
     ))
     
@@ -304,8 +367,8 @@ def update_dashboard(n):
     )
     # Add arrow as a separate annotation
     indoor_gauge.add_annotation(
-        x=0.59, y=0.01, text=indoor_arrow,
-        font=dict(size=70, color=indoor_arrow_color),
+        x=0.70, y=-0.02, text=indoor_arrow,
+        font=dict(size=80, color=indoor_arrow_color),
         showarrow=False
     )
 
@@ -334,8 +397,8 @@ def update_dashboard(n):
     )
     # Add arrow as a separate annotation
     outdoor_gauge.add_annotation(
-        x=0.59, y=0.01, text=outdoor_arrow,
-        font=dict(size=70, color=outdoor_arrow_color),
+        x=0.70, y=-0.02, text=outdoor_arrow,
+        font=dict(size=80, color=outdoor_arrow_color),
         showarrow=False
     )
 
@@ -368,7 +431,7 @@ def handle_modals(disable_fan_clicks, confirm_yes_clicks, confirm_no_clicks, war
     notification_open = False
 
     stage = workflow_state.get('stage', 'initial')
-    button_text = "Disable Fan" if stage == 'initial' else "Enable Fan"
+    button_text = "Override Fan" if stage == 'initial' else "Enable Fan"
 
     # Workflow logic
     if triggered_id == 'disable-fan' and stage == 'initial':
@@ -401,6 +464,43 @@ def get_last_state_from_db():
     except sqlite3.Error:
         return "OFF"
 
+# New layout function for the second page with the historical graph
+def historical_conditions_layout():
+    conn = sqlite3.connect(db_path)
+    try:
+        # Query historical data for indoor and outdoor AQI
+        indoor_data = pd.read_sql("SELECT timestamp, pm25 FROM Indoor ORDER BY timestamp DESC LIMIT 500;", conn)
+        outdoor_data = pd.read_sql("SELECT timestamp, pm25_value FROM pm25_data ORDER BY timestamp DESC LIMIT 500;", conn)
+    except Exception as e:
+        print(f"Error retrieving data: {e}")
+        indoor_data = pd.DataFrame(columns=["timestamp", "pm25"])
+        outdoor_data = pd.DataFrame(columns=["timestamp", "pm25_value"])
+    finally:
+        conn.close()
+    
+    # Convert timestamp columns to datetime
+    indoor_data['timestamp'] = pd.to_datetime(indoor_data['timestamp'])
+    outdoor_data['timestamp'] = pd.to_datetime(outdoor_data['timestamp'])
+    
+    # Create the graph
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=indoor_data['timestamp'], y=indoor_data['pm25'], mode='lines', name='Indoor AQI'))
+    fig.add_trace(go.Scatter(x=outdoor_data['timestamp'], y=outdoor_data['pm25_value'], mode='lines', name='Outdoor AQI'))
+    
+    fig.update_layout(
+        title="HISTORICAL CONDITIONS",
+        xaxis_title="Timestamp",
+        yaxis_title="AQI",
+        template="plotly_white",
+        height=600,
+        margin=dict(l=40, r=40, t=40, b=40)
+    )
+    
+    return dbc.Container([
+        dbc.Row(dbc.Col(html.H1("Historical AQI Conditions", className="text-center mb-4"))),
+        dbc.Row(dbc.Col(dcc.Graph(figure=fig))),
+    ], fluid=True, className="p-4")
+
 def update_fan_state(state):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     conn = sqlite3.connect(DATABASE_PATH)
@@ -419,8 +519,15 @@ app.layout = html.Div([
 def display_page(pathname):
     if pathname == '/':
         return dashboard_layout()
+    elif pathname == '/historical':
+        return historical_conditions_layout()
     else:
         return html.Div("Page not found")
+
+# Run the app
+if __name__ == '__main__':
+    app.run_server(debug=True)
+
 
 # Run the app
 if __name__ == '__main__':
