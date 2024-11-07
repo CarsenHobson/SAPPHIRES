@@ -313,8 +313,8 @@ def update_dashboard(n):
         outdoor_data = pd.read_sql("SELECT pm25_value FROM pm25_data ORDER BY timestamp DESC LIMIT 4;", conn)
         
         # Determine current AQI values
-        indoor_aqi = 900#
-        outdoor_aqi = 9000#int(outdoor_data['pm25_value'].iloc[0])
+        indoor_aqi = int(indoor_data['pm25'].iloc[0])
+        outdoor_aqi = int(outdoor_data['pm25_value'].iloc[0])
 
         # Calculate past averages (last 3 readings) for comparison
         indoor_aqi_avg = indoor_data['pm25'].iloc[1:].mean()
