@@ -289,7 +289,7 @@ def dashboard_layout():
 
         dbc.Modal([
             dbc.ModalHeader("Fan Enabled"),
-            dbc.ModalBody("The fan has been re-enabled."),
+            dbc.ModalBody("You have selected the 'Enable Fan' button. The fan will turn on momentarily and will proceed filtering the air and improving the air quality in your residence. You may now close this window."),
             dbc.ModalFooter(dbc.Button("Close", id="close-notification", className="btn btn-secondary"))
         ], id="modal-notification", is_open=False, backdrop="static", centered=True),
 
@@ -313,8 +313,8 @@ def update_dashboard(n):
         outdoor_data = pd.read_sql("SELECT pm25_value FROM pm25_data ORDER BY timestamp DESC LIMIT 4;", conn)
         
         # Determine current AQI values
-        indoor_aqi = int(indoor_data['pm25'].iloc[0])
-        outdoor_aqi = int(outdoor_data['pm25_value'].iloc[0])
+        indoor_aqi = 900#
+        outdoor_aqi = 9000#int(outdoor_data['pm25_value'].iloc[0])
 
         # Calculate past averages (last 3 readings) for comparison
         indoor_aqi_avg = indoor_data['pm25'].iloc[1:].mean()
@@ -328,34 +328,60 @@ def update_dashboard(n):
     # Determine arrow direction and color
     indoor_arrow = "⬆️" if indoor_aqi > indoor_aqi_avg else "⬇️"
     indoor_arrow_color = "green" if indoor_aqi < indoor_aqi_avg else "red"
-
     outdoor_arrow = "⬆️" if outdoor_aqi > outdoor_aqi_avg else "⬇️"
     outdoor_arrow_color = "green" if outdoor_aqi < outdoor_aqi_avg else "red"
     
-     # Get emojis
+    # Get emojis
     indoor_emoji = get_aqi_emoji(indoor_aqi)
     outdoor_emoji = get_aqi_emoji(outdoor_aqi)
 
-    # Gauge figures with AQI number and separate arrow annotation
+    # Function to determine x position based on number of digits
+    def get_position_offset(value):
+        length = len(str(value))
+        if length == 1:
+            return 0.48
+        elif length == 2:
+            return 0.47
+        elif length == 3:
+            return 0.46
+        else:  # For four or more digits
+            return 0.45
+
+    def arrow_position_offset(value):
+        length = len(str(value))
+        if length == 1:
+            return 0.55
+        elif length == 2:
+            return 0.58
+        elif length == 3:
+            return 0.59
+        elif length == 4:  # For four or more digits
+            return 0.61
+        
+    # Gauge figures with dynamic number placement
     indoor_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
+        mode="gauge",
         value=indoor_aqi,
         gauge={
             'axis': {'range': [0, 150]},
             'bar': {'color': get_gauge_color(indoor_aqi)},
             'bgcolor': "lightgray",
             'bordercolor': "black",
-        },
-        number={
-            "font": {'color': "black"},  # Keep AQI number color standard
-            'xanchor': "center",  # Horizontal alignment (options: "auto", "left", "center", "right")
-            'yanchor': "bottom",  # Vertical alignment (options: "auto", "top", "middle", "bottom")
-            'x': 0.5,  # X-coordinate (relative position from 0 to 1)
-            'y': 1.2   # Y-coordinate (relative position, can be adjusted)  # Keep AQI number color standard
         }
     ))
-    
-   # Add Emoji as an Image for Indoor AQI
+
+    # Adjust number position
+    indoor_gauge.add_annotation(
+        x=get_position_offset(indoor_aqi),  # Dynamic x position
+        y=0,  # Fixed y position
+        text=f"<b>{indoor_aqi}</b>",  # AQI value
+        showarrow=False,
+        font=dict(size=70, color="black"),
+        xanchor="center",
+        yanchor="bottom"
+    )
+
+    # Add Emoji for Indoor AQI
     indoor_gauge.add_layout_image(
         dict(
             source=indoor_emoji,
@@ -365,27 +391,39 @@ def update_dashboard(n):
             xanchor="center", yanchor="middle"
         )
     )
-    # Add arrow as a separate annotation
+
+    # Adjust arrow position
     indoor_gauge.add_annotation(
-        x=0.70, y=-0.02, text=indoor_arrow,
+        x=arrow_position_offset(indoor_aqi),  # Adjusted x position next to number
+        y=-0.02, text=indoor_arrow,
         font=dict(size=80, color=indoor_arrow_color),
         showarrow=False
     )
 
+    # Repeat for outdoor gauge
     outdoor_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
+        mode="gauge",
         value=outdoor_aqi,
         gauge={
             'axis': {'range': [0, 150]},
             'bar': {'color': get_gauge_color(outdoor_aqi)},
             'bgcolor': "lightgray",
             'bordercolor': "black",
-        },
-        number={
-            'font': {'color': "black"}  # Keep AQI number color standard
         }
     ))
-    # Add Emoji as an Image for Outdoor AQI
+
+    # Adjust number position
+    outdoor_gauge.add_annotation(
+        x=get_position_offset(outdoor_aqi),  # Dynamic x position
+        y=0,  # Fixed y position
+        text=f"<b>{outdoor_aqi}</b>",  # AQI value
+        showarrow=False,
+        font=dict(size=70, color="black"),
+        xanchor="center",
+        yanchor="bottom"
+    )
+
+    # Add Emoji for Outdoor AQI
     outdoor_gauge.add_layout_image(
         dict(
             source=outdoor_emoji,
@@ -395,9 +433,11 @@ def update_dashboard(n):
             xanchor="center", yanchor="middle"
         )
     )
-    # Add arrow as a separate annotation
+
+    # Adjust arrow position
     outdoor_gauge.add_annotation(
-        x=0.70, y=-0.02, text=outdoor_arrow,
+        x=arrow_position_offset(outdoor_aqi),  # Adjusted x position next to number
+        y=-0.02, text=outdoor_arrow,
         font=dict(size=80, color=outdoor_arrow_color),
         showarrow=False
     )
@@ -405,24 +445,45 @@ def update_dashboard(n):
     return indoor_gauge, outdoor_gauge
 
 
+# Helper function to get the last fan state from the database
+def get_last_fan_state():
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_input FROM user_control ORDER BY id DESC LIMIT 1")
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else "OFF"  # Default to "OFF" if no data
 
-# Modal workflow callback
+# Initialize the button text based on the last saved state
+@app.callback(
+    [Output('disable-fan', 'children'), Output('workflow-state', 'data')],
+    [Input('interval-component', 'n_intervals')]
+)
+def initialize_button_state(n_intervals):
+    last_state = get_last_fan_state()
+    button_text = "Enable Fan" if last_state == "OFF" else "Override Fan"
+    stage = 'fan_off' if last_state == "OFF" else 'initial'
+    return button_text, {'stage': stage}
+
 @app.callback(
     [Output('modal-confirm', 'is_open'),
      Output('modal-warning', 'is_open'),
      Output('modal-notification', 'is_open'),
-     Output('disable-fan', 'children'),
-     Output('workflow-state', 'data')],
+     Output('disable-fan', 'children', allow_duplicate=True),
+     Output('disable-fan', 'style'),  # Add style output for dynamic color
+     Output('workflow-state', 'data', allow_duplicate=True)],
     [Input('disable-fan', 'n_clicks'),
      Input('confirm-yes', 'n_clicks'),
      Input('confirm-no', 'n_clicks'),
      Input('warning-yes', 'n_clicks'),
      Input('warning-no', 'n_clicks'),
-     Input('close-notification', 'n_clicks')],
-    [State('workflow-state', 'data')]
+     Input('close-notification', 'n_clicks'),
+     Input('interval-component', 'n_intervals')],
+    [State('workflow-state', 'data')],
+    prevent_initial_call=True
 )
 def handle_modals(disable_fan_clicks, confirm_yes_clicks, confirm_no_clicks, warning_yes_clicks, warning_no_clicks,
-                  close_notification, workflow_state):
+                  close_notification, n_intervals, workflow_state):
     triggered_id = callback_context.triggered[0]['prop_id'].split('.')[0] if callback_context.triggered else None
 
     # State initialization
@@ -430,8 +491,25 @@ def handle_modals(disable_fan_clicks, confirm_yes_clicks, confirm_no_clicks, war
     warning_open = False
     notification_open = False
 
-    stage = workflow_state.get('stage', 'initial')
-    button_text = "Override Fan" if stage == 'initial' else "Enable Fan"
+    # Initialize the button state based on the last fan state in the database
+    last_state = get_last_fan_state()
+    stage = workflow_state.get('stage', 'fan_off' if last_state == "OFF" else 'initial')
+    button_text = "Enable Fan" if last_state == "OFF" else "Override Fan"
+
+    # Define the button style dynamically based on its state
+    button_style = {
+        "width": "200px",
+        "height": "100px",
+        "border-radius": "200px",
+        "font-size": "1.8rem",
+        "color": "white",
+        "backgroundColor": "green" if button_text == "Enable Fan" else "red",
+        "border": "2px solid green" if button_text == "Enable Fan" else "2px solid red"  # Match border with background color
+    }
+
+    # If the `interval-component` triggered this callback, set the initial state without further actions
+    if triggered_id == 'interval-component':
+        return confirm_open, warning_open, notification_open, button_text, button_style, {'stage': stage}
 
     # Workflow logic
     if triggered_id == 'disable-fan' and stage == 'initial':
@@ -442,27 +520,25 @@ def handle_modals(disable_fan_clicks, confirm_yes_clicks, confirm_no_clicks, war
         warning_open = True
         stage = 'warning'
     elif triggered_id == 'warning-yes':
-        update_fan_state('OFF')
+        update_fan_state('OFF')  # Disables the fan
         button_text = "Enable Fan"
+        button_style["backgroundColor"] = "green"
+        button_style["border"] = "2px solid green"
         stage = 'fan_off'
+    elif triggered_id == 'disable-fan' and stage == 'fan_off':
+        update_fan_state('ON')  # Re-enables the fan
+        button_text = "Override Fan"
+        button_style["backgroundColor"] = "red"
+        button_style["border"] = "2px solid red"
+        stage = 'initial'
+        notification_open = True
     elif triggered_id == 'close-notification':
         notification_open = False
     elif triggered_id == 'confirm-no' or triggered_id == 'warning-no':
         stage = 'initial'
 
-    return confirm_open, warning_open, notification_open, button_text, {'stage': stage}
+    return confirm_open, warning_open, notification_open, button_text, button_style, {'stage': stage}
 
-# Helper functions for fan state
-def get_last_state_from_db():
-    try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-        cursor.execute('SELECT state FROM fan_state ORDER BY id DESC LIMIT 1')
-        result = cursor.fetchone()
-        conn.close()
-        return result[0] if result else "OFF"
-    except sqlite3.Error:
-        return "OFF"
 
 # New layout function for the second page with the historical graph
 def historical_conditions_layout():
@@ -503,9 +579,9 @@ def historical_conditions_layout():
 
 def update_fan_state(state):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    conn = sqlite3.connect(DATABASE_PATH)
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO fan_state (state, timestamp) VALUES (?, ?)', (state, timestamp))
+    cursor.execute('INSERT INTO user_control (timestamp, user_input) VALUES (?, ?)', (timestamp, state))
     conn.commit()
     conn.close()
 
@@ -528,7 +604,3 @@ def display_page(pathname):
 if __name__ == '__main__':
     app.run_server(debug=True)
 
-
-# Run the app
-if __name__ == '__main__':
-    app.run_server(debug=True)
