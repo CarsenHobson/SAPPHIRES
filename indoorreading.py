@@ -1,70 +1,54 @@
 import time
-import sqlite3
 from sps30 import SPS30
+import sqlite3
+import board
+from adafruit_bme280 import basic as adafruit_bme280
+# Database path
+db_path = '/home/mainhubs/SAPPHIRES.db'
 
-sps = SPS30(1)
+# Connect to the SQLite database
+conn = sqlite3.connect(db_path)
 
-DATABASE_PATH = "indoor.db"
+# Create a cursor object
+cur = conn.cursor()
 
-# Function to initialize the SQLite database
-def initialize_database():
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    
-    # Create a table for storing data if it doesn't exist
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS sps30_data (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp INTEGER NOT NULL,
-            pm2_5 REAL NOT NULL
-        )
-    ''')
-    
+# Initialize the SPS30 sensor
+sps30 = SPS30(port=1)
+
+#Initialize bme280
+i2c = board.I2C()
+bme280 = adafruit_bme280.Adafruit_BME280_I2C(i2c)
+
+def celsius_to_fahrenheit(celsius):
+    return (celsius * 9 / 5) + 32
+
+try:
+    # Read measured values from the sensor
+    sps30.read_measured_values()
+    pm25 = sps30.dict_values['pm2p5']
+    temperature_celsius = bme280.temperature
+    temperature_fahrenheit = celsius_to_fahrenheit(temperature_celsius)
+    humidity = bme280.humidity
+    current_time = time.strftime('%Y-%m-%d %H:%M:%S')
+
+    # Insert the pm25 value and timestamp into the database
+    insert_query = '''
+    INSERT INTO Indoor (timestamp, pm25, temperature, humidity)
+    VALUES (?, ?, ?, ?)
+    '''
+    cur.execute(insert_query, (current_time, pm25, temperature_fahrenheit, humidity))
+
+    # Commit the changes
     conn.commit()
+
+    print(f"Values inserted successfully at {current_time}.")
+
+except KeyboardInterrupt:
+    # Stop the sensor measurement if interrupted
+    sps30.stop_measurement()
+    print("\nKeyboard interrupt detected. SPS30 turned off.")
+
+finally:
+    # Close the database connection
     conn.close()
-
-# Function to log data to the SQLite database
-def log_data_to_db(pm2_5):
-    try:
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-        
-        # Insert data into the table
-        cursor.execute('''
-            INSERT INTO sps30_data (timestamp, pm2_5)
-            VALUES (?, ?)
-        ''', (int(time.time()), pm2_5))
-        
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        print(f"Error writing to SQLite database: {str(e)}")
-
-# Function to setup the SPS30 sensor
-def setup_sps30():
-    sps.start_measurement()
-    time.sleep(2)
-
-if __name__ == "__main__":
-    try:
-        # Initialize the database
-        initialize_database()
-        
-        # Setup the SPS30 sensor
-        setup_sps30()
-        
-        # Read sensor data once
-        sps.read_measured_values()
-        data = sps.dict_values['pm2p5']
-        
-        # Log the data to the SQLite database
-        log_data_to_db(data)
-        
-        # Stop the sensor
-        sps.stop_measurement()
-        print("Data logged successfully and SPS30 turned off.")
-
-    except KeyboardInterrupt:
-        sps.stop_measurement()
-        print("\nKeyboard interrupt detected. SPS30 turned off.")
 
