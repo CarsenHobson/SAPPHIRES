@@ -4,7 +4,7 @@ from datetime import datetime
 import sqlite3
 
 # Constants
-DATABASE_FILE_PATH = 'pm25_data.db'
+DATABASE_FILE_PATH = 'SAPPHIRES.db'
 WINDOW_SIZE = 20  # Number of readings to consider
 
 # Database connection
@@ -51,27 +51,9 @@ def fetch_last_20_rows_columns():
 def read_baseline_value():
     """Read the baseline PM2.5 value from the database."""
     try:
-        cursor.execute("SELECT baseline FROM pm25_data ORDER BY timestamp DESC LIMIT 5")
-        rows = cursor.fetchall()
-        if len(rows) > 1:
-            baseline_values = [row[0] for row in rows]
-            average_baseline_values = sum(baseline_values) / len(baseline_values)
-            latest_baseline = baseline_values[0]
-            valid_baseline_values = [value for value in baseline_values[1:] if value <= 1.5 * baseline_values[1]]
-
-            if latest_baseline > 1.5 * average_baseline_values:
-                if valid_baseline_values:
-                    previous_baseline = valid_baseline_values[0]
-                else:
-                    previous_baseline = baseline_values[1]
-                print("Latest baseline value is too high, using the previous valid baseline value.")
-                return 7.5
-            else:
-                return latest_baseline
-        elif len(rows) == 1:
-            return rows[0][0]
-        else:
-            return 7.5  # Default if no baseline values are found
+        cursor.execute("SELECT baseline FROM pm25_data ORDER BY timestamp DESC LIMIT 1")
+        baseline = cursor.fetchall()
+        return baseline       
     except sqlite3.Error as e:
         print(f"Database error: {str(e)}")
         return 7.5  # Default in case of a database error
@@ -94,10 +76,6 @@ def check_rising_edge():
     global current_relay_state
 
     baseline_pm25 = read_baseline_value()
-
-    # Ensure baseline is at least 7.5
-    if baseline_pm25 < 7.5:
-        baseline_pm25 = 7.5
 
     current_time = time.time()
     one_hour_ago = current_time - 3600
