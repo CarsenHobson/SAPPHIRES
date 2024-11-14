@@ -9,8 +9,8 @@ import datetime
 import base64
 
 # Paths to the SQLite databases
-db_path = '/home/mainhubs/pm25_data.db'  # Replace with the correct path to your database
-DATABASE_PATH = 'fan_state.db'
+db_path = '/home/mainhubs/SAPPHIRES.db'  # Replace with the correct path to your database
+
 
 app = dash.Dash(__name__, 
                 external_stylesheets=[dbc.themes.BOOTSTRAP, "https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"],
@@ -33,7 +33,9 @@ create_tables_script = """
 CREATE TABLE IF NOT EXISTS Indoor (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp TEXT,
-    pm25 REAL
+    pm25 REAL,
+    temperature REAL,
+    humidity REAL
 );
 
 CREATE TABLE IF NOT EXISTS baseline (
@@ -54,10 +56,13 @@ CREATE TABLE IF NOT EXISTS filter_state (
     filter_state TEXT
 );
 
-CREATE TABLE IF NOT EXISTS pm25_data (
+CREATE TABLE IF NOT EXISTS Outdoor (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp TEXT,
-    pm25_value REAL
+    pm25_value REAL,
+    temperature REAL,
+    humidity REAL,
+    wifi_strength REAL
 );
 """
 # Execute the script
@@ -157,30 +162,54 @@ def dashboard_layout():
                         "border-bottom": "none",
                         "height": "455px"  # Adjust height for top two-thirds
                     }),
-                    # Bottom third with temperature box
+                   
+                # Bottom third with temperature box
+                # Bottom third with temperature box
+                html.Div([
+                    # Temperature box wrapper
                     html.Div([
-                        # Temperature box in the bottom left
-                        html.Div("Temperature", className="d-flex justify-content-center align-items-center",
+                        # Header for Temperature box
+                        html.Div("Temperature", className="text-center",
                                  style={
-                                     "width": "400px",
-                                     "height": "150px",
-                                     "border": "2px solid black",
-                                     "position": "absolute",  # Align to the right
                                      "font-size": "1.5rem",
-                                     "bottom": "0",
-                                     "left": "0",
+                                     "font-weight": "bold",
+                                     "padding-top": "10px",
+                                     "color": "black"
+                                 }),
+                        # Temperature display for indoor temperature
+                        html.Div(id="indoor-temp-display",  # Indoor temperature display ID
+                                 className="d-flex justify-content-center align-items-center",
+                                 style={
+                                     "font-size": "2rem",
+                                     "color": "black",
                                      "text-align": "center",
-                                     "background-color": "#D2B48C",
-                                     "border-radius": "5px 7px 5px 0"
+                                     "margin-top": "10px"  # Adds spacing between header and value
                                  })
                     ], style={
-                        "padding": "30px",
-                        "border-left": "2px solid black",
-                        "border-right": "2px solid black",
-                        "border-bottom": "2px solid black",  # Add a bottom border to align with button
-                        "height": "227px",  # Adjust height for bottom third
-                        "background-color": "transparent"  # Ensure background is transparent
+                        "width": "400px",
+                        "height": "150px",
+                        "border": "2px solid black",
+                        "position": "absolute",
+                        "bottom": "0",
+                        "left": "0",
+                        "background-color": "#D2B48C",
+                        "border-radius": "5px 7px 5px 0",
+                        "display": "flex",
+                        "flex-direction": "column",
+                        "justify-content": "center",
+                        "align-items": "center"
                     })
+                ], style={
+                    "padding": "30px",
+                    "border-left": "2px solid black",
+                    "border-right": "2px solid black",
+                    "border-bottom": "2px solid black",
+                    "height": "227px",
+                    "background-color": "transparent"
+                })
+
+
+
                 ])
             ]), width=6, className="p-0"),
 
@@ -207,30 +236,53 @@ def dashboard_layout():
                         "border-bottom": "none",
                         "height": "455px"  # Adjust height for top two-thirds
                     }),
-                    # Bottom third with temperature box
+                   
+                # Bottom third with temperature box
+                html.Div([
+                    # Temperature box wrapper
                     html.Div([
-                        # Temperature box in the bottom right
-                        html.Div("Temperature", className="d-flex justify-content-center align-items-center",
+                        # Header for Temperature box
+                        html.Div("Temperature", className="text-center",
                                  style={
-                                     "width": "400px",
-                                     "height": "150px",
-                                     "border": "2px solid black",
-                                     "position": "absolute",  # Align to the right
                                      "font-size": "1.5rem",
-                                     "bottom": "0",
-                                     "right": "0",
+                                     "font-weight": "bold",
+                                     "padding-top": "10px",
+                                     "color": "black"
+                                 }),
+                        # Temperature display for outdoor temperature
+                        html.Div(id="outdoor-temp-display",  # Outdoor temperature display ID
+                                 className="d-flex justify-content-center align-items-center",
+                                 style={
+                                     "font-size": "2rem",
+                                     "color": "black",
                                      "text-align": "center",
-                                     "background-color": "#7BC8F6",
-                                     "border-radius": "7px 5px 5px 0"
+                                     "margin-top": "10px"  # Adds spacing between header and value
                                  })
                     ], style={
-                        "padding": "30px",
-                        "border-left": "2px solid black",
-                        "border-right": "2px solid black",
-                        "border-bottom": "2px solid black",  # Add a bottom border to align with button
-                        "height": "227px",  # Adjust height for bottom third
-                        "background-color": "transparent"  # Ensure background is transparent
+                        "width": "400px",
+                        "height": "150px",
+                        "border": "2px solid black",
+                        "position": "absolute",
+                        "bottom": "0",
+                        "right": "0",
+                        "background-color": "#7BC8F6",
+                        "border-radius": "7px 5px 5px 0",
+                        "display": "flex",
+                        "flex-direction": "column",
+                        "justify-content": "center",
+                        "align-items": "center"
                     })
+                ], style={
+                    "padding": "30px",
+                    "border-left": "2px solid black",
+                    "border-right": "2px solid black",
+                    "border-bottom": "2px solid black",
+                    "height": "227px",
+                    "background-color": "transparent"
+                })
+
+
+
                 ])
             ]), width=6, className="p-0")]),
 
@@ -300,65 +352,67 @@ def dashboard_layout():
 
 @app.callback(
     [Output('indoor-gauge', 'figure'),
-     Output('outdoor-gauge', 'figure')],
+     Output('outdoor-gauge', 'figure'),
+     Output('indoor-temp-display', 'children'),
+     Output('outdoor-temp-display', 'children')],
     [Input('interval-component', 'n_intervals')]
 )
 def update_dashboard(n):
     conn = sqlite3.connect(db_path)
     
-    # Queries for AQI
     try:
-        # Fetch the latest and past 3 indoor AQI readings
-        indoor_data = pd.read_sql("SELECT pm25 FROM Indoor ORDER BY timestamp DESC LIMIT 4;", conn)
-        outdoor_data = pd.read_sql("SELECT pm25_value FROM pm25_data ORDER BY timestamp DESC LIMIT 4;", conn)
+        # Fetch the latest and past 3 indoor and outdoor AQI readings
+        indoor_pm = pd.read_sql("SELECT pm25 FROM Indoor ORDER BY timestamp DESC LIMIT 60;", conn)
+        outdoor_pm = pd.read_sql("SELECT pm25_value FROM Outdoor ORDER BY timestamp DESC LIMIT 60;", conn)
         
-        # Determine current AQI values
-        indoor_aqi = int(indoor_data['pm25'].iloc[0])
-        outdoor_aqi = int(outdoor_data['pm25_value'].iloc[0])
-
-        # Calculate past averages (last 3 readings) for comparison
-        indoor_aqi_avg = indoor_data['pm25'].iloc[1:].mean()
-        outdoor_aqi_avg = outdoor_data['pm25_value'].iloc[1:].mean()
+        # Fetch the latest temperature readings
+        indoor_temp = pd.read_sql("SELECT temperature FROM Indoor ORDER BY timestamp DESC LIMIT 1;", conn)
+        outdoor_temp = pd.read_sql("SELECT temperature FROM Outdoor ORDER BY timestamp DESC LIMIT 1;", conn)
+        
+        # Determine AQI values and calculate delta
+        indoor_aqi = round(int(indoor_pm['pm25'].iloc[0]))
+        outdoor_aqi = round(int(outdoor_pm['pm25_value'].iloc[0]))
+        indoor_aqi_avg = indoor_pm['pm25'].iloc[30:].mean()
+        outdoor_aqi_avg = outdoor_pm['pm25_value'].iloc[30:].mean()
+        indoor_delta = indoor_aqi - round(indoor_aqi_avg)
+        outdoor_delta = outdoor_aqi - round(outdoor_aqi_avg)
+        
+        # Fetch and format temperature values
+        indoor_temp_value = round(indoor_temp['temperature'].iloc[0], 1)
+        outdoor_temp_value = round(outdoor_temp['temperature'].iloc[0], 1)
+        indoor_temp_text = f"{indoor_temp_value} °F"
+        outdoor_temp_text = f"{outdoor_temp_value} °F"
     except Exception as e:
         print(f"Error retrieving data: {e}")
-        indoor_aqi, outdoor_aqi, indoor_aqi_avg, outdoor_aqi_avg = 0, 0, 0, 0
+        indoor_aqi, outdoor_aqi, indoor_delta, outdoor_delta = 0, 0, 0, 0
+        indoor_temp_text, outdoor_temp_text = "N/A", "N/A"
     finally:
         conn.close()
 
     # Determine arrow direction and color
-    indoor_arrow = "⬆️" if indoor_aqi > indoor_aqi_avg else "⬇️"
-    indoor_arrow_color = "green" if indoor_aqi < indoor_aqi_avg else "red"
-    outdoor_arrow = "⬆️" if outdoor_aqi > outdoor_aqi_avg else "⬇️"
-    outdoor_arrow_color = "green" if outdoor_aqi < outdoor_aqi_avg else "red"
+    indoor_arrow = "⬆️" if indoor_delta > 0 else "⬇️"
+    indoor_arrow_color = "green" if indoor_delta < 0 else "red"
+    outdoor_arrow = "⬆️" if outdoor_delta > 0 else "⬇️"
+    outdoor_arrow_color = "green" if outdoor_delta < 0 else "red"
     
+    # Format delta text with "+" or "-" sign
+    indoor_delta_text = f"+{indoor_delta}" if indoor_delta > 0 else str(indoor_delta)
+    outdoor_delta_text = f"+{outdoor_delta}" if outdoor_delta > 0 else str(outdoor_delta)
+
     # Get emojis
     indoor_emoji = get_aqi_emoji(indoor_aqi)
     outdoor_emoji = get_aqi_emoji(outdoor_aqi)
 
-    # Function to determine x position based on number of digits
+    # Position offset functions for dynamic placements
     def get_position_offset(value):
         length = len(str(value))
-        if length == 1:
-            return 0.48
-        elif length == 2:
-            return 0.47
-        elif length == 3:
-            return 0.46
-        else:  # For four or more digits
-            return 0.45
+        return 0.48 if length == 1 else 0.47 if length == 2 else 0.46
 
     def arrow_position_offset(value):
         length = len(str(value))
-        if length == 1:
-            return 0.55
-        elif length == 2:
-            return 0.58
-        elif length == 3:
-            return 0.59
-        elif length == 4:  # For four or more digits
-            return 0.61
-        
-    # Gauge figures with dynamic number placement
+        return 0.55 if length == 1 else 0.58 if length == 2 else 0.59
+
+    # Indoor gauge with dynamic number placement
     indoor_gauge = go.Figure(go.Indicator(
         mode="gauge",
         value=indoor_aqi,
@@ -370,18 +424,16 @@ def update_dashboard(n):
         }
     ))
 
-    # Adjust number position
     indoor_gauge.add_annotation(
-        x=get_position_offset(indoor_aqi),  # Dynamic x position
-        y=0,  # Fixed y position
-        text=f"<b>{indoor_aqi}</b>",  # AQI value
+        x=get_position_offset(indoor_aqi),
+        y=0,
+        text=f"<b>{indoor_aqi}</b>",
         showarrow=False,
         font=dict(size=70, color="black"),
         xanchor="center",
         yanchor="bottom"
     )
 
-    # Add Emoji for Indoor AQI
     indoor_gauge.add_layout_image(
         dict(
             source=indoor_emoji,
@@ -392,15 +444,24 @@ def update_dashboard(n):
         )
     )
 
-    # Adjust arrow position
     indoor_gauge.add_annotation(
-        x=arrow_position_offset(indoor_aqi),  # Adjusted x position next to number
-        y=-0.02, text=indoor_arrow,
+        x=arrow_position_offset(indoor_aqi),
+        y=-0.02,
+        text=indoor_arrow,
         font=dict(size=80, color=indoor_arrow_color),
         showarrow=False
     )
 
-    # Repeat for outdoor gauge
+    # Delta annotation for indoor
+    indoor_gauge.add_annotation(
+        x=arrow_position_offset(indoor_aqi) + 0.05,  # Slightly offset to the right of the arrow
+        y=0.12,
+        text=indoor_delta_text,
+        font=dict(size=30, color=indoor_arrow_color),  # Smaller font for delta
+        showarrow=False
+    )
+
+    # Outdoor gauge with dynamic number placement
     outdoor_gauge = go.Figure(go.Indicator(
         mode="gauge",
         value=outdoor_aqi,
@@ -412,18 +473,16 @@ def update_dashboard(n):
         }
     ))
 
-    # Adjust number position
     outdoor_gauge.add_annotation(
-        x=get_position_offset(outdoor_aqi),  # Dynamic x position
-        y=0,  # Fixed y position
-        text=f"<b>{outdoor_aqi}</b>",  # AQI value
+        x=get_position_offset(outdoor_aqi),
+        y=0,
+        text=f"<b>{outdoor_aqi}</b>",
         showarrow=False,
         font=dict(size=70, color="black"),
         xanchor="center",
         yanchor="bottom"
     )
 
-    # Add Emoji for Outdoor AQI
     outdoor_gauge.add_layout_image(
         dict(
             source=outdoor_emoji,
@@ -434,15 +493,25 @@ def update_dashboard(n):
         )
     )
 
-    # Adjust arrow position
     outdoor_gauge.add_annotation(
-        x=arrow_position_offset(outdoor_aqi),  # Adjusted x position next to number
-        y=-0.02, text=outdoor_arrow,
+        x=arrow_position_offset(outdoor_aqi),
+        y=-0.02,
+        text=outdoor_arrow,
         font=dict(size=80, color=outdoor_arrow_color),
         showarrow=False
     )
 
-    return indoor_gauge, outdoor_gauge
+    # Delta annotation for outdoor
+    outdoor_gauge.add_annotation(
+        x=arrow_position_offset(outdoor_aqi) + 0.05,  # Slightly offset to the right of the arrow
+        y=0.12,
+        text=outdoor_delta_text,
+        font=dict(size=30, color=outdoor_arrow_color),  # Smaller font for delta
+        showarrow=False
+    )
+
+    return indoor_gauge, outdoor_gauge, indoor_temp_text, outdoor_temp_text
+
 
 
 # Helper function to get the last fan state from the database
@@ -494,7 +563,7 @@ def handle_modals(disable_fan_clicks, confirm_yes_clicks, confirm_no_clicks, war
     # Initialize the button state based on the last fan state in the database
     last_state = get_last_fan_state()
     stage = workflow_state.get('stage', 'fan_off' if last_state == "OFF" else 'initial')
-    button_text = "Enable Fan" if last_state == "OFF" else "Override Fan"
+    button_text = "Enable Fan" if last_state == "OFF" else "Disable Fan"
 
     # Define the button style dynamically based on its state
     button_style = {
@@ -546,7 +615,7 @@ def historical_conditions_layout():
     try:
         # Query historical data for indoor and outdoor AQI
         indoor_data = pd.read_sql("SELECT timestamp, pm25 FROM Indoor ORDER BY timestamp DESC LIMIT 500;", conn)
-        outdoor_data = pd.read_sql("SELECT timestamp, pm25_value FROM pm25_data ORDER BY timestamp DESC LIMIT 500;", conn)
+        outdoor_data = pd.read_sql("SELECT timestamp, pm25_value FROM Outdoor ORDER BY timestamp DESC LIMIT 500;", conn)
     except Exception as e:
         print(f"Error retrieving data: {e}")
         indoor_data = pd.DataFrame(columns=["timestamp", "pm25"])
@@ -603,4 +672,3 @@ def display_page(pathname):
 # Run the app
 if __name__ == '__main__':
     app.run_server(debug=True)
-
